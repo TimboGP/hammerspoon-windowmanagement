@@ -17,18 +17,28 @@ local function buildSaveData(ws)
   return { name = ws.name, grid = ws.gridConfig, slots = slots }
 end
 
-local function loadWorkspaceByName(deps, name)
-  local gridLib, overlay, persistence, matcher, workspaces = deps.gridLib, deps.overlay, deps.persistence, deps.matcher, deps.workspaces
+local function saveWorkspaceNamed(deps, ws, name)
+  return deps.persistence.saveWorkspace(name, buildSaveData(ws))
+end
+
+-- Builds a workspace's slots from its saved JSON (launching apps and
+-- matching windows asynchronously) without touching which workspace is
+-- "current" or visible - that's the caller's decision, since a single
+-- workspace load activates it immediately but an arrangement load should
+-- only activate the one workspace, keeping the rest hidden once populated.
+-- Calls onComplete(workspaceOrNil).
+local function populateWorkspaceFromSaved(deps, name, onComplete)
+  local gridLib, overlay, persistence, matcher, workspaces =
+      deps.gridLib, deps.overlay, deps.persistence, deps.matcher, deps.workspaces
 
   local data = persistence.loadWorkspace(name)
   if not data then
     hs.alert.show("WM: could not load '" .. name .. "'", 1.5)
+    onComplete(nil)
     return
   end
 
-  workspaces.hideCurrent()
   local ws = workspaces.register(name)
-  hs.alert.show("WM: loading '" .. name .. "'...", 1.5)
 
   local pending = 0
   for _, slotData in ipairs(data.slots) do
@@ -39,7 +49,7 @@ local function loadWorkspaceByName(deps, name)
 
   local function finishIfDone()
     if pending <= 0 then
-      workspaces.activate(name)
+      onComplete(ws)
     end
   end
 
@@ -70,6 +80,45 @@ local function loadWorkspaceByName(deps, name)
   finishIfDone() -- covers the all-empty-slots case, where the loop above never decrements pending
 end
 
+local function loadWorkspaceByName(deps, name)
+  deps.workspaces.hideCurrent()
+  hs.alert.show("WM: loading '" .. name .. "'...", 1.5)
+  populateWorkspaceFromSaved(deps, name, function(ws)
+    if ws then
+      deps.workspaces.activate(name)
+    end
+  end)
+end
+
+local function loadArrangementByName(deps, name)
+  local data = deps.persistence.loadArrangement(name)
+  if not data then
+    hs.alert.show("WM: could not load arrangement '" .. name .. "'", 1.5)
+    return
+  end
+
+  deps.workspaces.hideCurrent()
+  hs.alert.show("WM: loading arrangement '" .. name .. "'...", 1.5)
+
+  local pending = #data.workspaces
+  if pending == 0 then
+    return
+  end
+  for _, wsName in ipairs(data.workspaces) do
+    populateWorkspaceFromSaved(deps, wsName, function(ws)
+      if ws and wsName == data.activeWorkspace then
+        deps.workspaces.activate(wsName)
+      elseif ws then
+        ws:hide()
+      end
+      pending = pending - 1
+      if pending <= 0 then
+        hs.alert.show("WM: arrangement '" .. name .. "' loaded", 1.5)
+      end
+    end)
+  end
+end
+
 function M.start(config, gridLib, overlay, persistence, matcher, leaderModal, workspaces)
   local deps = {
     gridLib = gridLib,
@@ -82,7 +131,8 @@ function M.start(config, gridLib, overlay, persistence, matcher, leaderModal, wo
   local saveModal = hs.hotkey.modal.new()
 
   function saveModal:entered()
-    hs.alert.show("Save/Load: w save workspace, l load workspace, esc cancel", 2)
+    hs.alert.show(
+      "Save/Load: w save workspace, a save arrangement, l load workspace, shift+l load arrangement, esc cancel", 3)
   end
 
   saveModal:bind({}, "w", nil, function()
@@ -94,12 +144,44 @@ function M.start(config, gridLib, overlay, persistence, matcher, leaderModal, wo
     end
     local button, name = hs.dialog.textPrompt("Save workspace", "Name:", ws.name, "Save", "Cancel")
     if button == "Save" and name and #name > 0 then
-      local ok, err = persistence.saveWorkspace(name, buildSaveData(ws))
+      local ok, err = saveWorkspaceNamed(deps, ws, name)
       if ok then
         hs.alert.show("WM: saved '" .. name .. "'", 1.5)
       else
         hs.alert.show("WM: save failed - " .. tostring(err), 2)
       end
+    end
+  end)
+
+  saveModal:bind({}, "a", nil, function()
+    saveModal:exit()
+    local names = workspaces.names()
+    if #names == 0 then
+      hs.alert.show("WM: no workspaces to save into an arrangement", 1.5)
+      return
+    end
+    local cur = workspaces.current()
+    local button, name = hs.dialog.textPrompt("Save arrangement", "Name:", "", "Save", "Cancel")
+    if button ~= "Save" or not name or #name == 0 then
+      return
+    end
+    -- Ensure every member workspace has an up-to-date on-disk copy, since
+    -- the arrangement itself only stores a pointer list, not full data.
+    for _, wsName in ipairs(names) do
+      local ws = workspaces.get(wsName)
+      if ws then
+        saveWorkspaceNamed(deps, ws, wsName)
+      end
+    end
+    local ok, err = persistence.saveArrangement(name, {
+      name = name,
+      workspaces = names,
+      activeWorkspace = cur and cur.name or names[1],
+    })
+    if ok then
+      hs.alert.show("WM: saved arrangement '" .. name .. "'", 1.5)
+    else
+      hs.alert.show("WM: arrangement save failed - " .. tostring(err), 2)
     end
   end)
 
@@ -117,6 +199,26 @@ function M.start(config, gridLib, overlay, persistence, matcher, leaderModal, wo
     local chooser = hs.chooser.new(function(choice)
       if choice then
         loadWorkspaceByName(deps, choice.text)
+      end
+    end)
+    chooser:choices(choices)
+    chooser:show()
+  end)
+
+  saveModal:bind({ "shift" }, "l", nil, function()
+    saveModal:exit()
+    local names = persistence.savedArrangementNames()
+    if #names == 0 then
+      hs.alert.show("WM: no saved arrangements", 1.5)
+      return
+    end
+    local choices = {}
+    for _, name in ipairs(names) do
+      table.insert(choices, { text = name })
+    end
+    local chooser = hs.chooser.new(function(choice)
+      if choice then
+        loadArrangementByName(deps, choice.text)
       end
     end)
     chooser:choices(choices)

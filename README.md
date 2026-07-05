@@ -25,7 +25,9 @@ Work-in-progress, built milestone by milestone:
       swap sub-mode
 - [x] **M5** — Persistence (save/load a workspace, app+title matching), via
       an `s` save/load sub-mode
-- [ ] **M6** — Arrangements (bundles of workspaces, bulk switch)
+- [x] **M6** — Arrangements (bundles of workspaces, bulk switch), via `a`
+      (save arrangement) and `shift+l` (load arrangement) in the `s`
+      sub-mode
 - [ ] **M7** — Auto-track opt-in watcher + per-app ignore list
 - [ ] **M8** — Polish (menu bar parity, README limitations, final pass)
 
@@ -91,8 +93,19 @@ Accessibility).
   polls for a window whose title contains the saved title, falling back to
   the first available window of that app (with an alert) if no title
   matches within ~8s. Slots with no saved app become empty placeholders.
+- Arrangements (also under `s`): `a` prompts for a name and saves every
+  currently-known workspace as a bundle — re-saving each member workspace's
+  on-disk copy first, then writing
+  `~/.hammerspoon/window-mgmt/arrangements/<name>.json` with the member
+  list and which workspace was active. `shift+l` opens a picker of saved
+  arrangements; loading one hides whatever's currently showing, then loads
+  every member workspace (same app-launch + title-match flow as a single
+  workspace load) — the arrangement's designated active workspace ends up
+  visible, the rest are loaded and then immediately hidden. Workspaces
+  within the loaded arrangement can still be switched between freely with
+  the normal `1`-`9`/`p` switching.
 
-Remaining action keybindings (arrangements, etc.) land as their milestones
+Remaining action keybindings (auto-track, etc.) land as their milestones
 are implemented; see Status above.
 
 ## Backlog / future ideas
@@ -119,6 +132,15 @@ similar. These don't necessarily conflict, but if something seems stuck,
 try quitting them one at a time to isolate the culprit, or reassign this
 Spoon's `leader`/tiling keys in `config.lua` and `tiling.lua` to combos
 they don't use.
+
+If the leader combo itself works (its alert shows) but *every* sub-action
+key (`t`, `1`-`9`, `g`, etc.) silently fails or leaks through, check
+**System Settings → Privacy & Security → Input Monitoring** and make sure
+Hammerspoon is listed there and enabled (this is separate from
+Accessibility). If you just added it, **fully restart macOS** — a simple
+relaunch of Hammerspoon.app is not enough for this permission to take
+effect; we hit exactly this failure mode during development and only a
+full restart resolved it.
 
 ## Known v1 limitations
 

@@ -33,6 +33,10 @@ function M.current()
   return currentName and all[currentName]
 end
 
+function M.get(name)
+  return all[name]
+end
+
 -- Hides the current workspace, if any, without changing which one is
 -- "current" - used to hide the outgoing workspace immediately when a load
 -- starts, ahead of the (async) target workspace being ready to show.

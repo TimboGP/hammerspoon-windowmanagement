@@ -15,14 +15,10 @@ function M.start(cfg)
   ensureDir(config.arrangementsDir)
 end
 
-local function workspacePath(name)
-  return config.workspacesDir .. "/" .. name .. ".json"
-end
-
 -- Writes to a temp file then renames into place, so a crash mid-write can't
--- leave a corrupt workspace file.
-function M.saveWorkspace(name, data)
-  local path = workspacePath(name)
+-- leave a corrupt file.
+local function atomicSave(dir, name, data)
+  local path = dir .. "/" .. name .. ".json"
   local tmpPath = path .. ".tmp"
   local json = hs.json.encode(data, true)
   local f = io.open(tmpPath, "w")
@@ -35,13 +31,9 @@ function M.saveWorkspace(name, data)
   return ok ~= nil, err
 end
 
-function M.loadWorkspace(name)
-  return hs.json.read(workspacePath(name))
-end
-
-function M.savedWorkspaceNames()
+local function savedNames(dir)
   local names = {}
-  local ok, iter, dirObj = pcall(hs.fs.dir, config.workspacesDir)
+  local ok, iter, dirObj = pcall(hs.fs.dir, dir)
   if not ok then
     return names
   end
@@ -53,6 +45,30 @@ function M.savedWorkspaceNames()
   end
   table.sort(names)
   return names
+end
+
+function M.saveWorkspace(name, data)
+  return atomicSave(config.workspacesDir, name, data)
+end
+
+function M.loadWorkspace(name)
+  return hs.json.read(config.workspacesDir .. "/" .. name .. ".json")
+end
+
+function M.savedWorkspaceNames()
+  return savedNames(config.workspacesDir)
+end
+
+function M.saveArrangement(name, data)
+  return atomicSave(config.arrangementsDir, name, data)
+end
+
+function M.loadArrangement(name)
+  return hs.json.read(config.arrangementsDir .. "/" .. name .. ".json")
+end
+
+function M.savedArrangementNames()
+  return savedNames(config.arrangementsDir)
 end
 
 return M
