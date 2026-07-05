@@ -36,8 +36,19 @@ Work-in-progress, built milestone by milestone:
 
 ## Install
 
+This repo's root *is* the Spoon (no `WindowMgmt.spoon/` subfolder) — clone
+it directly into your Spoons directory, naming the local checkout
+`WindowMgmt.spoon` (Hammerspoon matches on the local folder name, not the
+git remote's name):
+
 ```sh
-ln -s "$(pwd)/WindowMgmt.spoon" ~/.hammerspoon/Spoons/WindowMgmt.spoon
+git clone https://github.com/TimboGP/hammerspoon-windowmanagement.git ~/.hammerspoon/Spoons/WindowMgmt.spoon
+```
+
+Or, if you keep a separate working copy elsewhere, symlink it in instead:
+
+```sh
+ln -s /path/to/your/clone ~/.hammerspoon/Spoons/WindowMgmt.spoon
 ```
 
 In `~/.hammerspoon/init.lua`:

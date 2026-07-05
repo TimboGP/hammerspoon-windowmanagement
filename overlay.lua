@@ -4,7 +4,8 @@ local gridLib = nil
 local gridConfig = nil
 local placeholders = {} -- id -> { canvas, screen, zone, label }
 local hints = {}        -- id -> { canvas, screen, zone, letter }
-local badges = {}       -- id -> { canvas, screen, zone, label }
+local badges = {}       -- id -> { canvas (nil if toggled off), screen, zone, label }
+local badgesEnabled = true
 local screenWatcher = nil
 
 local function buildPlaceholderCanvas(screen, zone, label)
@@ -114,9 +115,11 @@ function M.start(config, grid)
       entry.canvas:show()
     end
     for _, entry in pairs(badges) do
-      entry.canvas:delete()
-      entry.canvas = buildBadgeCanvas(entry.screen, entry.zone, entry.label)
-      entry.canvas:show()
+      if entry.canvas then
+        entry.canvas:delete()
+        entry.canvas = buildBadgeCanvas(entry.screen, entry.zone, entry.label)
+        entry.canvas:show()
+      end
     end
   end)
   screenWatcher:start()
@@ -166,15 +169,20 @@ end
 
 function M.showBadge(id, screen, zone, label)
   M.hideBadge(id)
-  local c = buildBadgeCanvas(screen, zone, label)
-  c:show()
+  local c = nil
+  if badgesEnabled then
+    c = buildBadgeCanvas(screen, zone, label)
+    c:show()
+  end
   badges[id] = { canvas = c, screen = screen, zone = zone, label = label }
 end
 
 function M.hideBadge(id)
   local entry = badges[id]
   if entry then
-    entry.canvas:delete()
+    if entry.canvas then
+      entry.canvas:delete()
+    end
     badges[id] = nil
   end
 end
@@ -182,6 +190,26 @@ end
 function M.hideAllBadges()
   for id in pairs(badges) do
     M.hideBadge(id)
+  end
+end
+
+function M.badgesEnabled()
+  return badgesEnabled
+end
+
+-- Toggles visibility of all currently-tracked badges immediately, without
+-- needing callers to re-issue showBadge for windows that are already
+-- displayed - re-enabling rebuilds a canvas for every remembered entry.
+function M.setBadgesEnabled(enabled)
+  badgesEnabled = enabled
+  for _, entry in pairs(badges) do
+    if enabled and not entry.canvas then
+      entry.canvas = buildBadgeCanvas(entry.screen, entry.zone, entry.label)
+      entry.canvas:show()
+    elseif not enabled and entry.canvas then
+      entry.canvas:delete()
+      entry.canvas = nil
+    end
   end
 end
 

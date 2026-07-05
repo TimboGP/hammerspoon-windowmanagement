@@ -108,6 +108,11 @@ function obj:start()
     table.insert(items, { title = "Load Arrangement…", fn = saveload.promptLoadArrangement })
     table.insert(items, { title = "-" })
     table.insert(items, { title = "Toggle Auto-track (focused app)", fn = autotrack.toggleFocusedApp })
+    table.insert(items, {
+      title = "Show Workspace Badges",
+      checked = overlay.badgesEnabled(),
+      fn = function() overlay.setBadgesEnabled(not overlay.badgesEnabled()) end,
+    })
     table.insert(items, { title = "-" })
     table.insert(items, { title = "Reload Config", fn = function() hs.reload() end })
 
