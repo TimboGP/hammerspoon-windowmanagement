@@ -24,6 +24,7 @@ local Workspace = dofile(obj.spoonPath .. "workspace.lua")
 local workspaces = dofile(obj.spoonPath .. "workspaces.lua")
 local membership = dofile(obj.spoonPath .. "membership.lua")
 local switching = dofile(obj.spoonPath .. "switching.lua")
+local swap = dofile(obj.spoonPath .. "swap.lua")
 
 local function checkAccessibility()
   if not hs.accessibilityState(false) then
@@ -48,6 +49,7 @@ function obj:start()
     forceReset = function()
       tiling.forceExit()
       membership.forceExit()
+      swap.forceExit()
     end,
   })
 
@@ -56,11 +58,13 @@ function obj:start()
   workspaces.start(self.config, Workspace, overlay, grid, menubar)
   membership.start(self.config, modal.getInstance(), workspaces)
   switching.start(self.config, modal.getInstance(), workspaces)
+  swap.start(self.config, grid, overlay, modal.getInstance(), workspaces)
 
   return self
 end
 
 function obj:stop()
+  swap.stop()
   membership.stop()
   tiling.stop()
   modal.stop()

@@ -2,10 +2,11 @@ local M = {}
 
 local gridLib = nil
 local gridConfig = nil
-local placeholders = {} -- id -> { canvas, screen, zone }
+local placeholders = {} -- id -> { canvas, screen, zone, label }
+local hints = {}        -- id -> { canvas, screen, zone, letter }
 local screenWatcher = nil
 
-local function buildCanvas(screen, zone, label)
+local function buildPlaceholderCanvas(screen, zone, label)
   local frame = gridLib.zoneToFrame(screen:frame(), gridConfig, zone)
   local c = hs.canvas.new(frame)
   c:appendElements({
@@ -33,13 +34,37 @@ local function buildCanvas(screen, zone, label)
   return c
 end
 
+local function buildHintCanvas(screen, zone, letter)
+  local frame = gridLib.zoneToFrame(screen:frame(), gridConfig, zone)
+  local c = hs.canvas.new(frame)
+  c:appendElements({
+    { type = "rectangle", action = "fill", fillColor = { white = 0, alpha = 0.35 } },
+    {
+      type = "text",
+      text = letter,
+      textColor = { white = 1, alpha = 0.95 },
+      textSize = 72,
+      textAlignment = "center",
+      frame = { x = "0%", y = "35%", w = "100%", h = "30%" },
+    },
+  })
+  c:level(hs.canvas.windowLevels.overlay)
+  c:clickActivating(false)
+  return c
+end
+
 function M.start(config, grid)
   gridLib = grid
   gridConfig = config.grid
   screenWatcher = hs.screen.watcher.new(function()
     for _, entry in pairs(placeholders) do
       entry.canvas:delete()
-      entry.canvas = buildCanvas(entry.screen, entry.zone, entry.label)
+      entry.canvas = buildPlaceholderCanvas(entry.screen, entry.zone, entry.label)
+      entry.canvas:show()
+    end
+    for _, entry in pairs(hints) do
+      entry.canvas:delete()
+      entry.canvas = buildHintCanvas(entry.screen, entry.zone, entry.letter)
       entry.canvas:show()
     end
   end)
@@ -48,7 +73,7 @@ end
 
 function M.showPlaceholder(id, screen, zone, label)
   M.hidePlaceholder(id)
-  local c = buildCanvas(screen, zone, label)
+  local c = buildPlaceholderCanvas(screen, zone, label)
   c:show()
   placeholders[id] = { canvas = c, screen = screen, zone = zone, label = label }
 end
@@ -61,9 +86,30 @@ function M.hidePlaceholder(id)
   end
 end
 
-function M.hideAll()
+function M.hideAllPlaceholders()
   for id in pairs(placeholders) do
     M.hidePlaceholder(id)
+  end
+end
+
+function M.showHint(id, screen, zone, letter)
+  M.hideHint(id)
+  local c = buildHintCanvas(screen, zone, letter)
+  c:show()
+  hints[id] = { canvas = c, screen = screen, zone = zone, letter = letter }
+end
+
+function M.hideHint(id)
+  local entry = hints[id]
+  if entry then
+    entry.canvas:delete()
+    hints[id] = nil
+  end
+end
+
+function M.hideAllHints()
+  for id in pairs(hints) do
+    M.hideHint(id)
   end
 end
 
@@ -72,7 +118,8 @@ function M.stop()
     screenWatcher:stop()
     screenWatcher = nil
   end
-  M.hideAll()
+  M.hideAllPlaceholders()
+  M.hideAllHints()
 end
 
 return M

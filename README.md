@@ -21,7 +21,8 @@ Work-in-progress, built milestone by milestone:
 - [x] **M3** — Workspace switching (minimize-based show/hide), via number
       keys `1`-`9`, a name picker on `p`, and `n` to create a named
       workspace
-- [ ] **M4** — Window swap (directional + hint-label overlay)
+- [x] **M4** — Window swap (directional + hint-label overlay), via an `x`
+      swap sub-mode
 - [ ] **M5** — Persistence (save/load a workspace, app+title matching)
 - [ ] **M6** — Arrangements (bundles of workspaces, bulk switch)
 - [ ] **M7** — Auto-track opt-in watcher + per-app ignore list
@@ -73,9 +74,15 @@ Accessibility).
   and shows the incoming one's (unminimize + re-snap to its saved zones),
   restoring focus to whichever window was last focused in it. The menu bar
   shows the active workspace's name.
+- Window swap (`x` from the leader modal): a big letter appears over every
+  other window in the current workspace — press it to swap the focused
+  window with that one. Or press an arrow key to swap with the nearest
+  neighbor in that direction (must actually be on that side and overlap on
+  the perpendicular axis, not just be geometrically closest). Both re-snap
+  both windows into each other's exact zone.
 
-Remaining action keybindings (swap, save/load, etc.) land as their
-milestones are implemented; see Status above.
+Remaining action keybindings (save/load, etc.) land as their milestones are
+implemented; see Status above.
 
 ## Backlog / future ideas
 
