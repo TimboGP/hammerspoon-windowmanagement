@@ -28,7 +28,8 @@ Work-in-progress, built milestone by milestone:
 - [x] **M6** — Arrangements (bundles of workspaces, bulk switch), via `a`
       (save arrangement) and `shift+l` (load arrangement) in the `s`
       sub-mode
-- [ ] **M7** — Auto-track opt-in watcher + per-app ignore list
+- [x] **M7** — Auto-track opt-in watcher + per-app ignore list, via `i` to
+      toggle the focused window's app
 - [ ] **M8** — Polish (menu bar parity, README limitations, final pass)
 
 ## Install
@@ -104,9 +105,17 @@ Accessibility).
   visible, the rest are loaded and then immediately hidden. Workspaces
   within the loaded arrangement can still be switched between freely with
   the normal `1`-`9`/`p` switching.
-
-Remaining action keybindings (auto-track, etc.) land as their milestones
-are implemented; see Status above.
+- Auto-track (`i` from the leader modal): toggles whether the focused
+  window's app is auto-tracked. While enabled for an app, any *new* window
+  it opens is automatically added to whichever workspace is currently
+  active (same logic as `g` `a`, just triggered by window creation instead
+  of a keypress) via a `hs.window.filter` scoped to only auto-tracked apps
+  (not a global filter watching every app, which is known to add
+  noticeable lag). Apps on the default ignore list (Hammerspoon itself,
+  Spotlight, system dialogs, etc. — see `config.lua`) can't be
+  auto-tracked. The list persists to
+  `~/.hammerspoon/window-mgmt/autotrack.json`. Manual `g` `a`/`g` `r`
+  remains the default for everything else.
 
 ## Backlog / future ideas
 
