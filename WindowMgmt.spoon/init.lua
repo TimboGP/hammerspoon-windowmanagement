@@ -25,6 +25,9 @@ local workspaces = dofile(obj.spoonPath .. "workspaces.lua")
 local membership = dofile(obj.spoonPath .. "membership.lua")
 local switching = dofile(obj.spoonPath .. "switching.lua")
 local swap = dofile(obj.spoonPath .. "swap.lua")
+local persistence = dofile(obj.spoonPath .. "persistence.lua")
+local matcher = dofile(obj.spoonPath .. "matcher.lua")
+local saveload = dofile(obj.spoonPath .. "saveload.lua")
 
 local function checkAccessibility()
   if not hs.accessibilityState(false) then
@@ -50,6 +53,7 @@ function obj:start()
       tiling.forceExit()
       membership.forceExit()
       swap.forceExit()
+      saveload.forceExit()
     end,
   })
 
@@ -60,10 +64,15 @@ function obj:start()
   switching.start(self.config, modal.getInstance(), workspaces)
   swap.start(self.config, grid, overlay, modal.getInstance(), workspaces)
 
+  persistence.start(self.config)
+  matcher.start(self.config)
+  saveload.start(self.config, grid, overlay, persistence, matcher, modal.getInstance(), workspaces)
+
   return self
 end
 
 function obj:stop()
+  saveload.stop()
   swap.stop()
   membership.stop()
   tiling.stop()

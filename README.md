@@ -23,7 +23,8 @@ Work-in-progress, built milestone by milestone:
       workspace
 - [x] **M4** — Window swap (directional + hint-label overlay), via an `x`
       swap sub-mode
-- [ ] **M5** — Persistence (save/load a workspace, app+title matching)
+- [x] **M5** — Persistence (save/load a workspace, app+title matching), via
+      an `s` save/load sub-mode
 - [ ] **M6** — Arrangements (bundles of workspaces, bulk switch)
 - [ ] **M7** — Auto-track opt-in watcher + per-app ignore list
 - [ ] **M8** — Polish (menu bar parity, README limitations, final pass)
@@ -80,9 +81,19 @@ Accessibility).
   neighbor in that direction (must actually be on that side and overlap on
   the perpendicular axis, not just be geometrically closest). Both re-snap
   both windows into each other's exact zone.
+- Save/load (`s` from the leader modal): `w` prompts for a name (defaulting
+  to the current workspace's name) and saves it to
+  `~/.hammerspoon/window-mgmt/workspaces/<name>.json` — one entry per slot,
+  recording its zone, app bundle ID, and current window title (used later
+  as a best-effort match hint, not a hard requirement). `l` opens a picker
+  of saved workspace names; picking one hides the current workspace,
+  launches each saved app (`hs.application.launchOrFocusByBundleID`), and
+  polls for a window whose title contains the saved title, falling back to
+  the first available window of that app (with an alert) if no title
+  matches within ~8s. Slots with no saved app become empty placeholders.
 
-Remaining action keybindings (save/load, etc.) land as their milestones are
-implemented; see Status above.
+Remaining action keybindings (arrangements, etc.) land as their milestones
+are implemented; see Status above.
 
 ## Backlog / future ideas
 
@@ -126,3 +137,9 @@ they don't use.
 - Two windows of the same app with identical titles in one workspace can't
   be reliably told apart; slot order is the tiebreaker.
 - No undo for tiling/swap actions.
+- Loading a saved workspace launches each app via
+  `hs.application.launchOrFocusByBundleID`, which just starts the app
+  normally — if that app has its own "show an Open panel / resume session
+  picker on launch" preference (e.g. some TextEdit configurations), that
+  dialog will appear and may need to be dismissed manually; this Spoon
+  can't suppress another app's own launch behavior.

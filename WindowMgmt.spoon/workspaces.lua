@@ -24,8 +24,38 @@ local function create(name)
   return ws
 end
 
+-- Creates and registers an empty workspace without touching current/show,
+-- for callers (e.g. async load) that need to populate slots incrementally
+-- before it's actually shown.
+M.register = create
+
 function M.current()
   return currentName and all[currentName]
+end
+
+-- Hides the current workspace, if any, without changing which one is
+-- "current" - used to hide the outgoing workspace immediately when a load
+-- starts, ahead of the (async) target workspace being ready to show.
+function M.hideCurrent()
+  local cur = M.current()
+  if cur then
+    cur:hide()
+  end
+end
+
+-- Makes an already-registered workspace current and shows it, without
+-- hiding anything first (the caller is expected to have already hidden
+-- the outgoing workspace via hideCurrent, e.g. before an async load).
+function M.activate(name)
+  currentName = name
+  local target = all[name]
+  if target then
+    target:show()
+  end
+  if menubar then
+    menubar.setStatus(name)
+  end
+  return target
 end
 
 -- Hides the current workspace (if any) and shows the target, creating it
@@ -34,17 +64,11 @@ function M.switchTo(name)
   if name == currentName then
     return M.current()
   end
-  local target = all[name] or create(name)
-  local cur = M.current()
-  if cur then
-    cur:hide()
+  if not all[name] then
+    create(name)
   end
-  currentName = name
-  target:show()
-  if menubar then
-    menubar.setStatus(name)
-  end
-  return target
+  M.hideCurrent()
+  return M.activate(name)
 end
 
 function M.switchToSlot(slotNumber)
