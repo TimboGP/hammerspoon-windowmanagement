@@ -12,6 +12,20 @@ function M.zoneToFrame(screenFrame, gridConfig, zone)
   }
 end
 
+-- Inverse of zoneToFrame: rounds a pixel frame to the nearest grid lines,
+-- for registering a window's current on-screen position as a zone.
+function M.frameToZone(screenFrame, gridConfig, frame)
+  local cellW = screenFrame.w / gridConfig.cols
+  local cellH = screenFrame.h / gridConfig.rows
+  local function round(v) return math.floor(v + 0.5) end
+  return {
+    x0 = round((frame.x - screenFrame.x) / cellW),
+    y0 = round((frame.y - screenFrame.y) / cellH),
+    x1 = round((frame.x - screenFrame.x + frame.w) / cellW),
+    y1 = round((frame.y - screenFrame.y + frame.h) / cellH),
+  }
+end
+
 -- Sets the frame and reads it back, since some apps (Chrome/Electron) round
 -- frames to their own internal grid rather than honoring the exact request.
 function M.snapWindowToZone(window, gridConfig, zone)

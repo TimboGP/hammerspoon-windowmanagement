@@ -16,7 +16,8 @@ Work-in-progress, built milestone by milestone:
       hatch
 - [x] **M1** — Grid math + manual tiling snap (halves/thirds/quarters/mixes),
       via a `t` tiling sub-mode and a `g` free grid-select sub-mode
-- [ ] **M2** — Workspace membership (add/remove windows, placeholder canvas)
+- [x] **M2** — Workspace membership (add/remove windows, placeholder canvas),
+      via a `g` membership sub-mode
 - [ ] **M3** — Workspace switching (minimize-based show/hide)
 - [ ] **M4** — Window swap (directional + hint-label overlay)
 - [ ] **M5** — Persistence (save/load a workspace, app+title matching)
@@ -55,6 +56,13 @@ Accessibility).
   right two-thirds, `y`/`u`/`b`/`n` for TL/TR/BL/BR quarters, `f` for full
   screen, `g` for a free grid-select (hjkl grows the zone, shift+hjkl moves
   its start corner, Enter confirms, Esc cancels), `esc` to back out.
+- Workspace membership (`g` from the leader modal): `a` adds the focused
+  window to the workspace — filling the first empty (placeholder) slot if
+  one exists, snapping the window into it, otherwise registering a new slot
+  at the window's current position. `r` removes the focused window from the
+  workspace, minimizes it, and leaves a labeled placeholder canvas in its
+  zone. To restore a removed window: unminimize/focus it again (Dock click,
+  Cmd+Tab, or Mission Control), then `g` `a` to re-add it to the same slot.
 
 Remaining action keybindings (workspace switch, swap, save/load, etc.) land
 as their milestones are implemented; see Status above.

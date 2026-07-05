@@ -19,6 +19,9 @@ local menubar = dofile(obj.spoonPath .. "menubar.lua")
 local modal = dofile(obj.spoonPath .. "modal.lua")
 local grid = dofile(obj.spoonPath .. "grid.lua")
 local tiling = dofile(obj.spoonPath .. "tiling.lua")
+local overlay = dofile(obj.spoonPath .. "overlay.lua")
+local Workspace = dofile(obj.spoonPath .. "workspace.lua")
+local membership = dofile(obj.spoonPath .. "membership.lua")
 
 local function checkAccessibility()
   if not hs.accessibilityState(false) then
@@ -37,23 +40,31 @@ function obj:start()
   checkAccessibility()
 
   menubar.start(self.config)
+  overlay.start(self.config, grid)
 
   modal.start(self.config, {
     forceReset = function()
       tiling.forceExit()
-      -- Later milestones hook overlay/canvas teardown in here too.
+      membership.forceExit()
     end,
   })
 
   tiling.start(self.config, grid, modal.getInstance())
 
+  -- v1 has a single default workspace; M3 replaces this with a named,
+  -- switchable multi-workspace registry.
+  self.defaultWorkspace = Workspace.new("default", overlay)
+  membership.start(self.config, grid, modal.getInstance(), self.defaultWorkspace)
+
   return self
 end
 
 function obj:stop()
+  membership.stop()
   tiling.stop()
   modal.stop()
   menubar.stop()
+  overlay.stop()
   return self
 end
 
