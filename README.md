@@ -18,7 +18,9 @@ Work-in-progress, built milestone by milestone:
       via a `t` tiling sub-mode and a `g` free grid-select sub-mode
 - [x] **M2** — Workspace membership (add/remove windows, placeholder canvas),
       via a `g` membership sub-mode
-- [ ] **M3** — Workspace switching (minimize-based show/hide)
+- [x] **M3** — Workspace switching (minimize-based show/hide), via number
+      keys `1`-`9`, a name picker on `p`, and `n` to create a named
+      workspace
 - [ ] **M4** — Window swap (directional + hint-label overlay)
 - [ ] **M5** — Persistence (save/load a workspace, app+title matching)
 - [ ] **M6** — Arrangements (bundles of workspaces, bulk switch)
@@ -63,9 +65,31 @@ Accessibility).
   workspace, minimizes it, and leaves a labeled placeholder canvas in its
   zone. To restore a removed window: unminimize/focus it again (Dock click,
   Cmd+Tab, or Mission Control), then `g` `a` to re-add it to the same slot.
+- Workspace switching (from the leader modal): `1`-`9` switch to that slot,
+  creating an empty "Workspace N" the first time a slot is used. `p` opens
+  a picker (fuzzy-searchable) listing every workspace created so far. `n`
+  prompts for a name and switches to (creating if needed) a named
+  workspace. Switching hides the outgoing workspace's windows (minimize)
+  and shows the incoming one's (unminimize + re-snap to its saved zones),
+  restoring focus to whichever window was last focused in it. The menu bar
+  shows the active workspace's name.
 
-Remaining action keybindings (workspace switch, swap, save/load, etc.) land
-as their milestones are implemented; see Status above.
+Remaining action keybindings (swap, save/load, etc.) land as their
+milestones are implemented; see Status above.
+
+## Backlog / future ideas
+
+Not yet scheduled to a specific milestone, but worth keeping in mind:
+
+- A small badge overlay on each workspace-member window showing which
+  workspace it belongs to (extension of `overlay.lua`).
+- A "reveal" action that briefly flashes the borders of every window in
+  the current workspace, to see at a glance what's in it.
+- A "focus mode": pull any window out of its workspace slot into a
+  centered or fullscreen state (leaving a placeholder behind), with only
+  one window in focus mode at a time. Likely modeled as a pseudo-workspace
+  with a single slot, but needs precise origin-slot tracking (not just
+  "any empty slot") so exiting focus mode restores it exactly.
 
 ## Troubleshooting
 

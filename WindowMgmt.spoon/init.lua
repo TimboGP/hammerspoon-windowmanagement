@@ -21,7 +21,9 @@ local grid = dofile(obj.spoonPath .. "grid.lua")
 local tiling = dofile(obj.spoonPath .. "tiling.lua")
 local overlay = dofile(obj.spoonPath .. "overlay.lua")
 local Workspace = dofile(obj.spoonPath .. "workspace.lua")
+local workspaces = dofile(obj.spoonPath .. "workspaces.lua")
 local membership = dofile(obj.spoonPath .. "membership.lua")
+local switching = dofile(obj.spoonPath .. "switching.lua")
 
 local function checkAccessibility()
   if not hs.accessibilityState(false) then
@@ -51,10 +53,9 @@ function obj:start()
 
   tiling.start(self.config, grid, modal.getInstance())
 
-  -- v1 has a single default workspace; M3 replaces this with a named,
-  -- switchable multi-workspace registry.
-  self.defaultWorkspace = Workspace.new("default", overlay)
-  membership.start(self.config, grid, modal.getInstance(), self.defaultWorkspace)
+  workspaces.start(self.config, Workspace, overlay, grid, menubar)
+  membership.start(self.config, modal.getInstance(), workspaces)
+  switching.start(self.config, modal.getInstance(), workspaces)
 
   return self
 end

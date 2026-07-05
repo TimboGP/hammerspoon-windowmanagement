@@ -1,6 +1,6 @@
 local M = {}
 
-function M.start(config, gridLib, leaderModal, workspace)
+function M.start(config, leaderModal, workspaces)
   local membershipModal = hs.hotkey.modal.new()
 
   function membershipModal:entered()
@@ -9,25 +9,29 @@ function M.start(config, gridLib, leaderModal, workspace)
 
   membershipModal:bind({}, "a", nil, function()
     local win = hs.window.focusedWindow()
+    local ws = workspaces.current()
     if not win then
       hs.alert.show("WM: no focused window", 1)
+    elseif not ws then
+      hs.alert.show("WM: no active workspace (press a number key first)", 1)
     else
-      workspace:addWindow(win, gridLib, config.grid)
-      hs.alert.show("WM: added to workspace '" .. workspace.name .. "'", 1)
+      ws:addWindow(win)
+      hs.alert.show("WM: added to workspace '" .. ws.name .. "'", 1)
     end
     membershipModal:exit()
   end)
 
   membershipModal:bind({}, "r", nil, function()
     local win = hs.window.focusedWindow()
+    local ws = workspaces.current()
     if not win then
       hs.alert.show("WM: no focused window", 1)
-    elseif not workspace:hasWindow(win) then
+    elseif not ws or not ws:hasWindow(win) then
       hs.alert.show("WM: focused window isn't in this workspace", 1)
     else
-      workspace:removeWindow(win)
+      ws:removeWindow(win)
       win:minimize()
-      hs.alert.show("WM: removed from workspace '" .. workspace.name .. "'", 1)
+      hs.alert.show("WM: removed from workspace '" .. ws.name .. "'", 1)
     end
     membershipModal:exit()
   end)
