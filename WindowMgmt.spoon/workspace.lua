@@ -37,12 +37,14 @@ function M:addWindow(window)
       slot.window = window
       self.gridLib.snapWindowToZone(window, self.gridConfig, slot.zone)
       self.overlay.hidePlaceholder(slotId(self, i))
+      self.overlay.showBadge(slotId(self, i), window:screen(), slot.zone, self.name)
       return slot
     end
   end
 
   local zone = self.gridLib.frameToZone(window:screen():frame(), self.gridConfig, window:frame())
   table.insert(self.slots, { window = window, zone = zone })
+  self.overlay.showBadge(slotId(self, #self.slots), window:screen(), zone, self.name)
   return self.slots[#self.slots]
 end
 
@@ -56,11 +58,29 @@ function M:removeWindow(window)
       local appName = window:application() and window:application():name() or "?"
       local label = appName .. " - " .. (window:title() or "")
       slot.window = nil
+      self.overlay.hideBadge(slotId(self, i))
       self.overlay.showPlaceholder(slotId(self, i), window:screen(), slot.zone, label)
       return slot
     end
   end
   return nil
+end
+
+-- Directly restores a window into a specific, previously-vacated slot
+-- (as opposed to addWindow's "first empty slot" heuristic) - used by focus
+-- mode, which needs to snap a window back to its exact origin rather than
+-- wherever happens to be free after other membership changes.
+function M:refillSlot(slot, window)
+  for i, s in ipairs(self.slots) do
+    if s == slot then
+      slot.window = window
+      self.gridLib.snapWindowToZone(window, self.gridConfig, slot.zone)
+      self.overlay.hidePlaceholder(slotId(self, i))
+      self.overlay.showBadge(slotId(self, i), window:screen(), slot.zone, self.name)
+      return true
+    end
+  end
+  return false
 end
 
 -- Minimizes every member window, remembering whichever one is currently
@@ -70,22 +90,24 @@ function M:hide()
   if focused and self:hasWindow(focused) then
     self.lastFocusedWindow = focused
   end
-  for _, slot in ipairs(self.slots) do
+  for i, slot in ipairs(self.slots) do
     if slot.window then
       slot.window:minimize()
     end
+    self.overlay.hideBadge(slotId(self, i))
   end
 end
 
 -- Unminimizes every member window, reapplies its zone (in case the screen
 -- changed while hidden), and restores focus to the last-focused window.
 function M:show()
-  for _, slot in ipairs(self.slots) do
+  for i, slot in ipairs(self.slots) do
     if slot.window then
       if slot.window:isMinimized() then
         slot.window:unminimize()
       end
       self.gridLib.snapWindowToZone(slot.window, self.gridConfig, slot.zone)
+      self.overlay.showBadge(slotId(self, i), slot.window:screen(), slot.zone, self.name)
     end
   end
 

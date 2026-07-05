@@ -30,7 +30,9 @@ Work-in-progress, built milestone by milestone:
       sub-mode
 - [x] **M7** — Auto-track opt-in watcher + per-app ignore list, via `i` to
       toggle the focused window's app
-- [ ] **M8** — Polish (menu bar parity, README limitations, final pass)
+- [x] **M8** — Polish: menu bar dropdown mirrors every leader-modal action,
+      plus three extras beyond the original plan — workspace-ID badges,
+      a `v` reveal flash, and `f`/`c` focus mode
 
 ## Install
 
@@ -116,20 +118,20 @@ Accessibility).
   auto-tracked. The list persists to
   `~/.hammerspoon/window-mgmt/autotrack.json`. Manual `g` `a`/`g` `r`
   remains the default for everything else.
-
-## Backlog / future ideas
-
-Not yet scheduled to a specific milestone, but worth keeping in mind:
-
-- A small badge overlay on each workspace-member window showing which
-  workspace it belongs to (extension of `overlay.lua`).
-- A "reveal" action that briefly flashes the borders of every window in
-  the current workspace, to see at a glance what's in it.
-- A "focus mode": pull any window out of its workspace slot into a
-  centered or fullscreen state (leaving a placeholder behind), with only
-  one window in focus mode at a time. Likely modeled as a pseudo-workspace
-  with a single slot, but needs precise origin-slot tracking (not just
-  "any empty slot") so exiting focus mode restores it exactly.
+- Reveal (`v` from the leader modal): briefly flashes a bright border
+  around every window in the current workspace, to see at a glance what's
+  in it without needing to hunt for overlapping windows.
+- Focus mode (`f`/`c` from the leader modal): pulls the focused window out
+  of its workspace slot — leaving a labeled placeholder behind, just like
+  `g` `r` — and resizes it to either fullscreen (`f`) or a centered
+  rectangle (`c`). Press the same key again to restore it to its exact
+  original slot (not just any empty slot). Only one window can be in focus
+  mode at a time; entering focus mode on a different window first restores
+  whatever was already focused.
+- Menu bar: click the menu bar item for a dropdown mirroring the leader
+  actions — switch workspace (with a checkmark on the active one), create
+  a new workspace, save/load a workspace or arrangement, toggle auto-track
+  for the focused app, and reload config.
 
 ## Troubleshooting
 
@@ -174,3 +176,28 @@ full restart resolved it.
   picker on launch" preference (e.g. some TextEdit configurations), that
   dialog will appear and may need to be dismissed manually; this Spoon
   can't suppress another app's own launch behavior.
+- A window in focus mode is unregistered from its origin workspace for as
+  long as it's focused, so switching away from that workspace won't
+  minimize it — it stays on screen, floating outside any workspace, until
+  focus mode is exited (which restores it to its exact slot regardless of
+  which workspace is currently active).
+
+## Keybinding cheat-sheet
+
+All actions below start with the leader key (`cmd+ctrl+alt+space` by
+default), then the listed key(s):
+
+| Key(s) | Action |
+|---|---|
+| `t` → preset/`g` | Tile focused window (halves/thirds/quarters/full/custom) |
+| `g` → `a`/`r` | Add/remove focused window to/from the active workspace |
+| `1`-`9` | Switch to workspace slot (creating an empty one if unused) |
+| `p` | Picker: switch to any known workspace by name |
+| `n` | Create a new named workspace |
+| `x` → letter/arrow | Swap focused window with another (hint labels or directional) |
+| `s` → `w`/`a`/`l`/`shift+l` | Save workspace / save arrangement / load workspace / load arrangement |
+| `i` | Toggle auto-track for the focused window's app |
+| `v` | Reveal: flash borders of every window in the active workspace |
+| `f`/`c` | Toggle fullscreen/centered focus mode for the focused window |
+| `esc` (in any sub-mode) | Cancel back out |
+| `cmd+ctrl+alt+shift+esc` | Escape hatch: force-reset a stuck modal, always live |

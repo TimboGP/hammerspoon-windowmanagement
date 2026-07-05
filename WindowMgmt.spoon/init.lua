@@ -31,6 +31,8 @@ local saveload = dofile(obj.spoonPath .. "saveload.lua")
 local ignore = dofile(obj.spoonPath .. "ignore.lua")
 local watcher = dofile(obj.spoonPath .. "watcher.lua")
 local autotrack = dofile(obj.spoonPath .. "autotrack.lua")
+local reveal = dofile(obj.spoonPath .. "reveal.lua")
+local focus = dofile(obj.spoonPath .. "focus.lua")
 
 local function checkAccessibility()
   if not hs.accessibilityState(false) then
@@ -57,6 +59,7 @@ function obj:start()
       membership.forceExit()
       swap.forceExit()
       saveload.forceExit()
+      focus.forceExit()
     end,
   })
 
@@ -74,6 +77,42 @@ function obj:start()
   ignore.start(self.config)
   watcher.start(self.config, ignore, workspaces)
   autotrack.start(self.config, ignore, watcher, modal.getInstance())
+
+  reveal.start(self.config, overlay, modal.getInstance(), workspaces)
+  focus.start(self.config, grid, modal.getInstance(), workspaces)
+
+  menubar.setMenu(function()
+    local cur = workspaces.current()
+    local items = {
+      { title = "Workspace: " .. (cur and cur.name or "none"), disabled = true },
+      { title = "-" },
+    }
+
+    local names = workspaces.names()
+    if #names > 0 then
+      local switchItems = {}
+      for _, name in ipairs(names) do
+        table.insert(switchItems, {
+          title = name,
+          checked = cur and cur.name == name,
+          fn = function() workspaces.switchTo(name) end,
+        })
+      end
+      table.insert(items, { title = "Switch to", menu = switchItems })
+    end
+    table.insert(items, { title = "New Workspace…", fn = switching.promptNewWorkspace })
+    table.insert(items, { title = "-" })
+    table.insert(items, { title = "Save Workspace…", fn = saveload.promptSaveWorkspace })
+    table.insert(items, { title = "Load Workspace…", fn = saveload.promptLoadWorkspace })
+    table.insert(items, { title = "Save Arrangement…", fn = saveload.promptSaveArrangement })
+    table.insert(items, { title = "Load Arrangement…", fn = saveload.promptLoadArrangement })
+    table.insert(items, { title = "-" })
+    table.insert(items, { title = "Toggle Auto-track (focused app)", fn = autotrack.toggleFocusedApp })
+    table.insert(items, { title = "-" })
+    table.insert(items, { title = "Reload Config", fn = function() hs.reload() end })
+
+    return items
+  end)
 
   return self
 end

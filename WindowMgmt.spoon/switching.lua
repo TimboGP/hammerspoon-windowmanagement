@@ -1,6 +1,18 @@
 local M = {}
 
+local workspacesRef = nil
+
+function M.promptNewWorkspace()
+  local button, name = hs.dialog.textPrompt("New workspace", "Name:", "", "Create", "Cancel")
+  if button == "Create" and name and #name > 0 then
+    local ws = workspacesRef.switchTo(name)
+    hs.alert.show("WM: workspace '" .. ws.name .. "'", 1)
+  end
+end
+
 function M.start(config, leaderModal, workspaces)
+  workspacesRef = workspaces
+
   for i = 1, config.workspaceSlotCount do
     local key = tostring(i)
     leaderModal:bind({}, key, nil, function()
@@ -30,11 +42,7 @@ function M.start(config, leaderModal, workspaces)
   end)
 
   leaderModal:bind({}, "n", nil, function()
-    local button, name = hs.dialog.textPrompt("New workspace", "Name:", "", "Create", "Cancel")
-    if button == "Create" and name and #name > 0 then
-      local ws = workspaces.switchTo(name)
-      hs.alert.show("WM: workspace '" .. ws.name .. "'", 1)
-    end
+    M.promptNewWorkspace()
   end)
 end
 
