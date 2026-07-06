@@ -7,10 +7,10 @@ local obj = {}
 obj.__index = obj
 
 obj.name = "WindowMgmt"
-obj.version = "0.1"
+obj.version = "0.1.0"
 obj.author = "tboehm"
 obj.license = "MIT"
-obj.homepage = "https://github.com/tboehm/hammerspoon-window-mgmt"
+obj.homepage = "https://github.com/TimboGP/hammerspoon-windowmanagement"
 
 obj.spoonPath = hs.spoons.scriptPath()
 
