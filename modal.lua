@@ -12,8 +12,17 @@ function M.start(config, callbacks)
     end)
   end
 
+  local cheatSheet = table.concat({
+    "WM leader engaged",
+    "t tile | g add/remove | 1-9/p/n workspace | x swap",
+    "s save/load/delete | i autotrack | v reveal | f/c focus",
+    config.virtualDisplay and config.virtualDisplay.enabled
+        and "r restore parked | esc cancel"
+        or "esc cancel",
+  }, "\n")
+
   function modal:entered()
-    hs.alert.show("WM: leader engaged", 1)
+    hs.alert.show(cheatSheet, 3.5)
     resetIdleTimer()
     if callbacks.entered then callbacks.entered() end
   end

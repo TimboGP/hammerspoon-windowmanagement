@@ -117,7 +117,13 @@ Accessibility).
   workspace load) — the arrangement's designated active workspace ends up
   visible, the rest are loaded and then immediately hidden. Workspaces
   within the loaded arrangement can still be switched between freely with
-  the normal `1`-`9`/`p` switching.
+  the normal `1`-`9`/`p` switching. `d`/`shift+d` open a picker of saved
+  workspaces/arrangements and, after a confirmation dialog, delete the
+  picked one's on-disk JSON file. Deleting a workspace does not clean up
+  any arrangement that still references it by name (loading that
+  arrangement later will just alert that the member couldn't be found and
+  continue with the rest); deleting an arrangement never touches its
+  member workspaces.
 - Auto-track (`i` from the leader modal): toggles whether the focused
   window's app is auto-tracked. While enabled for an app, any *new* window
   it opens is automatically added to whichever workspace is currently
@@ -141,7 +147,7 @@ Accessibility).
   whatever was already focused.
 - Menu bar: click the menu bar item for a dropdown mirroring the leader
   actions — switch workspace (with a checkmark on the active one), create
-  a new workspace, save/load a workspace or arrangement, toggle auto-track
+  a new workspace, save/load/delete a workspace or arrangement, toggle auto-track
   for the focused app, and reload config.
 
 ## Troubleshooting
@@ -242,7 +248,9 @@ Known caveats:
 ## Keybinding cheat-sheet
 
 All actions below start with the leader key (`cmd+ctrl+alt+space` by
-default), then the listed key(s):
+default), then the listed key(s). Engaging the leader shows a condensed
+version of this table as an on-screen alert, so you don't have to
+memorize it up front.
 
 | Key(s) | Action |
 |---|---|
@@ -253,6 +261,7 @@ default), then the listed key(s):
 | `n` | Create a new named workspace |
 | `x` → letter/arrow | Swap focused window with another (hint labels or directional) |
 | `s` → `w`/`a`/`l`/`shift+l` | Save workspace / save arrangement / load workspace / load arrangement |
+| `s` → `d`/`shift+d` | Delete a saved workspace / saved arrangement (with confirmation) |
 | `i` | Toggle auto-track for the focused window's app |
 | `v` | Reveal: flash borders of every window in the active workspace |
 | `f`/`c` | Toggle fullscreen/centered focus mode for the focused window |

@@ -31,6 +31,11 @@ local function atomicSave(dir, name, data)
   return ok ~= nil, err
 end
 
+local function deleteSaved(dir, name)
+  local ok, err = os.remove(dir .. "/" .. name .. ".json")
+  return ok ~= nil, err
+end
+
 local function savedNames(dir)
   local names = {}
   local ok, iter, dirObj = pcall(hs.fs.dir, dir)
@@ -59,6 +64,10 @@ function M.savedWorkspaceNames()
   return savedNames(config.workspacesDir)
 end
 
+function M.deleteWorkspace(name)
+  return deleteSaved(config.workspacesDir, name)
+end
+
 function M.saveArrangement(name, data)
   return atomicSave(config.arrangementsDir, name, data)
 end
@@ -69,6 +78,10 @@ end
 
 function M.savedArrangementNames()
   return savedNames(config.arrangementsDir)
+end
+
+function M.deleteArrangement(name)
+  return deleteSaved(config.arrangementsDir, name)
 end
 
 return M

@@ -189,6 +189,64 @@ function M.promptSaveArrangement()
   end
 end
 
+function M.promptDeleteWorkspace()
+  local names = deps.persistence.savedWorkspaceNames()
+  if #names == 0 then
+    hs.alert.show("WM: no saved workspaces", 1.5)
+    return
+  end
+  local choices = {}
+  for _, name in ipairs(names) do
+    table.insert(choices, { text = name })
+  end
+  local chooser = hs.chooser.new(function(choice)
+    if not choice then return end
+    local button = hs.dialog.blockAlert(
+      "Delete workspace '" .. choice.text .. "'?",
+      "This removes its saved file on disk. This cannot be undone.",
+      "Delete", "Cancel")
+    if button == "Delete" then
+      local ok, err = deps.persistence.deleteWorkspace(choice.text)
+      if ok then
+        hs.alert.show("WM: deleted workspace '" .. choice.text .. "'", 1.5)
+      else
+        hs.alert.show("WM: delete failed - " .. tostring(err), 2)
+      end
+    end
+  end)
+  chooser:choices(choices)
+  chooser:show()
+end
+
+function M.promptDeleteArrangement()
+  local names = deps.persistence.savedArrangementNames()
+  if #names == 0 then
+    hs.alert.show("WM: no saved arrangements", 1.5)
+    return
+  end
+  local choices = {}
+  for _, name in ipairs(names) do
+    table.insert(choices, { text = name })
+  end
+  local chooser = hs.chooser.new(function(choice)
+    if not choice then return end
+    local button = hs.dialog.blockAlert(
+      "Delete arrangement '" .. choice.text .. "'?",
+      "This removes its saved file on disk (member workspaces are not deleted). This cannot be undone.",
+      "Delete", "Cancel")
+    if button == "Delete" then
+      local ok, err = deps.persistence.deleteArrangement(choice.text)
+      if ok then
+        hs.alert.show("WM: deleted arrangement '" .. choice.text .. "'", 1.5)
+      else
+        hs.alert.show("WM: delete failed - " .. tostring(err), 2)
+      end
+    end
+  end)
+  chooser:choices(choices)
+  chooser:show()
+end
+
 function M.promptLoadWorkspace()
   local names = deps.persistence.savedWorkspaceNames()
   if #names == 0 then
@@ -241,7 +299,8 @@ function M.start(config, gridLib, overlay, persistence, matcher, leaderModal, wo
 
   function saveModal:entered()
     hs.alert.show(
-      "Save/Load: w save workspace, a save arrangement, l load workspace, shift+l load arrangement, esc cancel", 3)
+      "Save/Load: w save workspace, a save arrangement, l load workspace, shift+l load arrangement, " ..
+      "d delete workspace, shift+d delete arrangement, esc cancel", 4)
   end
 
   saveModal:bind({}, "w", nil, function()
@@ -262,6 +321,16 @@ function M.start(config, gridLib, overlay, persistence, matcher, leaderModal, wo
   saveModal:bind({ "shift" }, "l", nil, function()
     saveModal:exit()
     M.promptLoadArrangement()
+  end)
+
+  saveModal:bind({}, "d", nil, function()
+    saveModal:exit()
+    M.promptDeleteWorkspace()
+  end)
+
+  saveModal:bind({ "shift" }, "d", nil, function()
+    saveModal:exit()
+    M.promptDeleteArrangement()
   end)
 
   saveModal:bind({}, "escape", nil, function() saveModal:exit() end)
