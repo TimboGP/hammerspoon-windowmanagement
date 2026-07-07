@@ -21,6 +21,12 @@ local function slotId(self, index)
   return self.name .. ":" .. index
 end
 
+-- unminimize() kicks off the Dock's genie/scale animation asynchronously at
+-- the OS level; hs.window:setFrame() calls issued before that animation
+-- settles are known to be silently dropped, so the post-unminimize zone
+-- snap in show() below has to wait rather than running in the same tick.
+local UNMINIMIZE_SETTLE_DELAY = 0.35
+
 -- hs.window objects fetched via separate queries (e.g. app:allWindows() vs
 -- hs.window.filter's windowCreated) are distinct userdata for the same real
 -- window - Lua's == compares userdata by reference, not by the underlying
@@ -100,6 +106,17 @@ function M:refillSlot(slot, window)
   return false
 end
 
+-- Re-keys this workspace's overlay elements from its current name to
+-- newName before adopting it, so hide()/show() (which recompute each
+-- slot's id from self.name at call time) keep finding the same on-screen
+-- badges/placeholders instead of orphaning them under the old name.
+function M:rename(newName)
+  for i = 1, #self.slots do
+    self.overlay.renameId(slotId(self, i), newName .. ":" .. i)
+  end
+  self.name = newName
+end
+
 local function useVirtualDisplay(self)
   return self.hideConfig and self.hideConfig.enabled and self.virtualDisplay ~= nil
 end
@@ -161,13 +178,20 @@ end
 function M:show()
   for i, slot in ipairs(self.slots) do
     if slot.window then
-      if slot.window:isMinimized() then
-        slot.window:unminimize()
-      elseif slot.realScreen then
-        restoreSlotFromPark(self, slot)
+      local win = slot.window
+      local zone = slot.zone
+      if win:isMinimized() then
+        win:unminimize()
+        hs.timer.doAfter(UNMINIMIZE_SETTLE_DELAY, function()
+          self.gridLib.snapWindowToZone(win, self.gridConfig, zone)
+        end)
+      else
+        if slot.realScreen then
+          restoreSlotFromPark(self, slot)
+        end
+        self.gridLib.snapWindowToZone(win, self.gridConfig, zone)
       end
-      self.gridLib.snapWindowToZone(slot.window, self.gridConfig, slot.zone)
-      self.overlay.showBadge(slotId(self, i), slot.window:screen(), slot.zone, self.name)
+      self.overlay.showBadge(slotId(self, i), win:screen(), zone, self.name)
     end
   end
 

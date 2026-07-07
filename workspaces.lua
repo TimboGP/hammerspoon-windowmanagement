@@ -88,6 +88,40 @@ function M.switchToSlot(slotNumber)
   return M.switchTo(name)
 end
 
+-- Renames an already-registered workspace in place - keeps it the same
+-- Workspace instance (same slots/windows) under a new key, updating
+-- currentName/slotNames so nothing still points at the old name. Used by
+-- "save workspace" when the user gives it a different name, so that saving
+-- updates the workspace's identity instead of leaving a second, separately-
+-- tracked workspace behind.
+function M.rename(oldName, newName)
+  if oldName == newName then
+    return true
+  end
+  local ws = all[oldName]
+  if not ws then
+    return false, "no such workspace '" .. oldName .. "'"
+  end
+  if all[newName] then
+    return false, "a workspace named '" .. newName .. "' already exists"
+  end
+  ws:rename(newName)
+  all[newName] = ws
+  all[oldName] = nil
+  if currentName == oldName then
+    currentName = newName
+  end
+  for slotNumber, name in pairs(slotNames) do
+    if name == oldName then
+      slotNames[slotNumber] = newName
+    end
+  end
+  if menubar and currentName == newName then
+    menubar.setStatus(newName)
+  end
+  return true
+end
+
 function M.names()
   local result = {}
   for name in pairs(all) do

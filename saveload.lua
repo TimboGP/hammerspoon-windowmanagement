@@ -76,6 +76,27 @@ local function populateWorkspaceFromSaved(name, onComplete)
 
   local ws = workspaces.register(name)
 
+  -- Seed claimedIds with windows already owned by every OTHER registered
+  -- workspace, so this load can't silently steal a window another
+  -- workspace still considers its own (e.g. the same app window sitting in
+  -- both a currently-open workspace and the one being loaded) - matcher
+  -- falls through to the next unclaimed window of that bundle ID, or
+  -- surfaces an "unresolved" placeholder, rather than snapping someone
+  -- else's window into this workspace's zone out from under it.
+  local claimedIds = {}
+  for _, otherName in ipairs(workspaces.names()) do
+    if otherName ~= name then
+      local other = workspaces.get(otherName)
+      if other then
+        for _, slot in ipairs(other.slots) do
+          if slot.window then
+            claimedIds[slot.window:id()] = true
+          end
+        end
+      end
+    end
+  end
+
   local pending = 0
   for _, slotData in ipairs(data.slots) do
     if slotData.bundleID then
@@ -89,7 +110,6 @@ local function populateWorkspaceFromSaved(name, onComplete)
     end
   end
 
-  local claimedIds = {}
   for _, slotData in ipairs(data.slots) do
     if slotData.bundleID then
       matcher.matchWindow(slotData.bundleID, slotData.titlePattern, claimedIds, function(win, warning)
@@ -158,6 +178,12 @@ end
 -- The four actions below are called both from saveModal's key bindings and
 -- directly from the menu bar dropdown.
 
+-- Saves over the currently open workspace's own identity: if the name is
+-- unchanged this just overwrites its file; if the name was edited in the
+-- dialog, the workspace is renamed in place first (so it stays the same
+-- workspace under a new name, rather than spawning a second one) and its
+-- previous on-disk file is removed since it's now a stale snapshot of the
+-- same workspace. Use promptSaveAsNewWorkspace for a deliberate duplicate.
 function M.promptSaveWorkspace()
   local ws = deps.workspaces.current()
   if not ws then
@@ -165,13 +191,44 @@ function M.promptSaveWorkspace()
     return
   end
   local button, name = hs.dialog.textPrompt("Save workspace", "Name:", ws.name, "Save", "Cancel")
-  if button == "Save" and name and #name > 0 then
-    local ok, err = saveWorkspaceNamed(ws, name)
-    if ok then
-      hs.alert.show("WM: saved '" .. name .. "'", 1.5)
-    else
-      hs.alert.show("WM: save failed - " .. tostring(err), 2)
+  if button ~= "Save" or not name or #name == 0 then
+    return
+  end
+  if name ~= ws.name then
+    local oldName = ws.name
+    local ok, err = deps.workspaces.rename(oldName, name)
+    if not ok then
+      hs.alert.show("WM: rename failed - " .. tostring(err), 2)
+      return
     end
+    deps.persistence.deleteWorkspace(oldName)
+  end
+  local ok, err = saveWorkspaceNamed(ws, name)
+  if ok then
+    hs.alert.show("WM: saved '" .. name .. "'", 1.5)
+  else
+    hs.alert.show("WM: save failed - " .. tostring(err), 2)
+  end
+end
+
+-- Saves a copy under a new name without touching the currently open
+-- workspace's identity or its existing on-disk file - the deliberate-
+-- duplicate counterpart to promptSaveWorkspace's rename-in-place default.
+function M.promptSaveAsNewWorkspace()
+  local ws = deps.workspaces.current()
+  if not ws then
+    hs.alert.show("WM: no active workspace to save", 1.5)
+    return
+  end
+  local button, name = hs.dialog.textPrompt("Save as new workspace", "Name:", ws.name .. " copy", "Save", "Cancel")
+  if button ~= "Save" or not name or #name == 0 then
+    return
+  end
+  local ok, err = saveWorkspaceNamed(ws, name)
+  if ok then
+    hs.alert.show("WM: saved new workspace '" .. name .. "'", 1.5)
+  else
+    hs.alert.show("WM: save failed - " .. tostring(err), 2)
   end
 end
 
@@ -316,13 +373,18 @@ function M.start(config, gridLib, overlay, persistence, matcher, leaderModal, wo
 
   function saveModal:entered()
     hs.alert.show(
-      "Save/Load: w save workspace, a save arrangement, l load workspace, shift+l load arrangement, " ..
-      "d delete workspace, shift+d delete arrangement, esc cancel", 4)
+      "Save/Load: w save workspace, shift+w save as new workspace, a save arrangement, l load workspace, " ..
+      "shift+l load arrangement, d delete workspace, shift+d delete arrangement, esc cancel", 4)
   end
 
   saveModal:bind({}, "w", nil, function()
     saveModal:exit()
     M.promptSaveWorkspace()
+  end)
+
+  saveModal:bind({ "shift" }, "w", nil, function()
+    saveModal:exit()
+    M.promptSaveAsNewWorkspace()
   end)
 
   saveModal:bind({}, "a", nil, function()

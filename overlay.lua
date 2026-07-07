@@ -193,6 +193,25 @@ function M.hideAllBadges()
   end
 end
 
+local function renameEntry(store, oldId, newId)
+  local entry = store[oldId]
+  if entry then
+    store[oldId] = nil
+    store[newId] = entry
+  end
+end
+
+-- Re-keys any tracked placeholder/hint/badge from oldId to newId without
+-- touching its canvas - used when a workspace is renamed, since hide()/
+-- show() recompute ids from the workspace's current name and would
+-- otherwise never find (and never clean up) elements created under the old
+-- name.
+function M.renameId(oldId, newId)
+  renameEntry(placeholders, oldId, newId)
+  renameEntry(hints, oldId, newId)
+  renameEntry(badges, oldId, newId)
+end
+
 function M.badgesEnabled()
   return badgesEnabled
 end

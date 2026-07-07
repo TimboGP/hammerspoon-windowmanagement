@@ -102,6 +102,33 @@ function obj:start()
     end)
   end
 
+  -- Flips the virtualDisplay strategy on/off for the rest of this session.
+  -- hideConfig is the same table reference every Workspace instance holds
+  -- (see workspaces.lua), so mutating self.config.virtualDisplay.enabled
+  -- here takes effect immediately for every workspace, current and future,
+  -- with no restart needed. Does not persist across a reload - flip the
+  -- default in config.lua if you want it to start enabled every time.
+  local function toggleVirtualDisplay()
+    local vd = self.config.virtualDisplay
+    vd.enabled = not vd.enabled
+    if vd.enabled then
+      hs.alert.show("WM: virtual-display hide/show enabled", 1.5)
+      virtualdisplay.ensureDisplay(function(screen, err)
+        if screen then
+          print("WindowMgmt: virtual display ready (" .. tostring(screen:name()) .. ")")
+        else
+          hs.alert.show("WM: vdisplay-helper unavailable (" .. tostring(err) .. "); falling back to minimize", 3)
+        end
+      end)
+    else
+      -- Bring back anything currently parked before dropping the strategy,
+      -- so disabling it never strands windows off-screen on the virtual
+      -- display with no obvious way to recover them.
+      workspaces.restoreAllParked()
+      hs.alert.show("WM: virtual-display hide/show disabled (using minimize)", 1.5)
+    end
+  end
+
   menubar.setMenu(function()
     local cur = workspaces.current()
     local items = {
@@ -124,6 +151,7 @@ function obj:start()
     table.insert(items, { title = "New Workspace…", fn = switching.promptNewWorkspace })
     table.insert(items, { title = "-" })
     table.insert(items, { title = "Save Workspace…", fn = saveload.promptSaveWorkspace })
+    table.insert(items, { title = "Save Workspace As New…", fn = saveload.promptSaveAsNewWorkspace })
     table.insert(items, { title = "Load Workspace…", fn = saveload.promptLoadWorkspace })
     table.insert(items, { title = "Delete Workspace…", fn = saveload.promptDeleteWorkspace })
     table.insert(items, { title = "Save Arrangement…", fn = saveload.promptSaveArrangement })
@@ -135,6 +163,11 @@ function obj:start()
       title = "Show Workspace Badges",
       checked = overlay.badgesEnabled(),
       fn = function() overlay.setBadgesEnabled(not overlay.badgesEnabled()) end,
+    })
+    table.insert(items, {
+      title = "Use Virtual Display for Hide/Show",
+      checked = self.config.virtualDisplay.enabled,
+      fn = toggleVirtualDisplay,
     })
     if self.config.virtualDisplay.enabled then
       table.insert(items, { title = "Bring Back Parked Windows", fn = workspaces.restoreAllParked })
