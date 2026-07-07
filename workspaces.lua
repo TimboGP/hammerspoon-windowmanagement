@@ -5,21 +5,25 @@ local overlay = nil
 local gridLib = nil
 local gridConfig = nil
 local menubar = nil
+local hideConfig = nil
+local virtualDisplay = nil
 
 local all = {}       -- name -> Workspace instance
 local slotNames = {} -- 1..9 -> name
 local currentName = nil
 
-function M.start(config, workspaceClass, overlayModule, grid, menubarModule)
+function M.start(config, workspaceClass, overlayModule, grid, menubarModule, virtualDisplayModule)
   Workspace = workspaceClass
   overlay = overlayModule
   gridLib = grid
   gridConfig = config.grid
   menubar = menubarModule
+  hideConfig = config.virtualDisplay
+  virtualDisplay = virtualDisplayModule
 end
 
 local function create(name)
-  local ws = Workspace.new(name, overlay, gridLib, gridConfig)
+  local ws = Workspace.new(name, overlay, gridLib, gridConfig, hideConfig, virtualDisplay)
   all[name] = ws
   return ws
 end
@@ -91,6 +95,19 @@ function M.names()
   end
   table.sort(result)
   return result
+end
+
+-- Restores any parked windows across every workspace, including hidden/
+-- inactive ones - the explicit recovery path for the virtualDisplay hide
+-- strategy, since a killed daemon or externally-removed display can leave
+-- parked windows stranded without ever switching through their workspace.
+function M.restoreAllParked()
+  for _, name in ipairs(M.names()) do
+    local ws = all[name]
+    if ws then
+      ws:restoreParkedWindows()
+    end
+  end
 end
 
 return M

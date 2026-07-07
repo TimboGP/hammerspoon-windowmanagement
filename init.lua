@@ -33,6 +33,7 @@ local watcher = dofile(obj.spoonPath .. "watcher.lua")
 local autotrack = dofile(obj.spoonPath .. "autotrack.lua")
 local reveal = dofile(obj.spoonPath .. "reveal.lua")
 local focus = dofile(obj.spoonPath .. "focus.lua")
+local virtualdisplay = dofile(obj.spoonPath .. "virtualdisplay.lua")
 
 local function checkAccessibility()
   if not hs.accessibilityState(false) then
@@ -65,14 +66,15 @@ function obj:start()
 
   tiling.start(self.config, grid, modal.getInstance())
 
-  workspaces.start(self.config, Workspace, overlay, grid, menubar)
+  virtualdisplay.start(self.config)
+  workspaces.start(self.config, Workspace, overlay, grid, menubar, virtualdisplay)
   membership.start(self.config, modal.getInstance(), workspaces)
   switching.start(self.config, modal.getInstance(), workspaces)
   swap.start(self.config, grid, overlay, modal.getInstance(), workspaces)
 
   persistence.start(self.config)
   matcher.start(self.config)
-  saveload.start(self.config, grid, overlay, persistence, matcher, modal.getInstance(), workspaces)
+  saveload.start(self.config, grid, overlay, persistence, matcher, modal.getInstance(), workspaces, virtualdisplay)
 
   ignore.start(self.config)
   watcher.start(self.config, ignore, workspaces)
@@ -80,6 +82,25 @@ function obj:start()
 
   reveal.start(self.config, overlay, modal.getInstance(), workspaces)
   focus.start(self.config, grid, modal.getInstance(), workspaces)
+
+  -- Explicit recovery for the experimental virtualDisplay hide strategy:
+  -- brings back any parked windows across every workspace (not just the
+  -- current one), e.g. after the vdisplay-helper daemon was restarted or the
+  -- display removed externally. A no-op when the strategy isn't enabled.
+  modal.getInstance():bind({}, "r", nil, function()
+    workspaces.restoreAllParked()
+    hs.alert.show("WM: restored any parked windows", 1.5)
+  end)
+
+  if self.config.virtualDisplay.enabled then
+    virtualdisplay.ensureDisplay(function(screen, err)
+      if screen then
+        print("WindowMgmt: virtual display ready (" .. tostring(screen:name()) .. ")")
+      else
+        print("WindowMgmt: virtual display unavailable (" .. tostring(err) .. "); hide/show will use minimize")
+      end
+    end)
+  end
 
   menubar.setMenu(function()
     local cur = workspaces.current()
@@ -113,6 +134,9 @@ function obj:start()
       checked = overlay.badgesEnabled(),
       fn = function() overlay.setBadgesEnabled(not overlay.badgesEnabled()) end,
     })
+    if self.config.virtualDisplay.enabled then
+      table.insert(items, { title = "Bring Back Parked Windows", fn = workspaces.restoreAllParked })
+    end
     table.insert(items, { title = "-" })
     table.insert(items, { title = "Reload Config", fn = function() hs.reload() end })
 
@@ -131,6 +155,31 @@ function obj:stop()
   modal.stop()
   menubar.stop()
   overlay.stop()
+
+  -- The vdisplay-helper daemon and its virtual display are never destroyed
+  -- automatically (they persist via launchd independently of this Spoon) -
+  -- but leaving one attached without the user's knowledge would be
+  -- surprising, so check for it here and ask. This check (and any resulting
+  -- cleanup) is asynchronous and may complete after this function returns;
+  -- nothing else in stop() depends on its result.
+  if self.config.virtualDisplay.enabled then
+    virtualdisplay.hasActiveDisplay(function(active)
+      if active then
+        workspaces.restoreAllParked()
+        local choice = hs.dialog.blockAlert(
+          "WindowMgmt: virtual display still attached",
+          "A parked virtual display (vdisplay-helper) is still running. Remove it now, or leave it attached? The daemon keeps running via launchd either way.",
+          "Remove", "Leave attached")
+        if choice == "Remove" then
+          virtualdisplay.removeDisplay(function() end)
+        end
+      end
+      virtualdisplay.stop()
+    end)
+  else
+    virtualdisplay.stop()
+  end
+
   return self
 end
 

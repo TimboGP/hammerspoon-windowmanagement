@@ -2,6 +2,23 @@ local M = {}
 
 local deps = nil
 
+-- The virtualDisplay strategy (if enabled) can make hs.screen.mainScreen()
+-- resolve to the virtual "park" display rather than a real one. Placeholder
+-- canvases must always land on a real screen, so this falls back to the
+-- first non-virtual screen whenever mainScreen() is the virtual one. A no-op
+-- for anyone who hasn't enabled the feature (deps.virtualDisplay is nil).
+local function realMainScreen()
+  local main = hs.screen.mainScreen()
+  if deps.virtualDisplay and deps.virtualDisplay.getScreen() == main then
+    for _, screen in ipairs(hs.screen.allScreens()) do
+      if screen ~= main then
+        return screen
+      end
+    end
+  end
+  return main
+end
+
 local function buildSaveData(ws)
   local slots = {}
   for _, slot in ipairs(ws.slots) do
@@ -65,7 +82,7 @@ local function populateWorkspaceFromSaved(name, onComplete)
           gridLib.snapWindowToZone(win, ws.gridConfig, slotData.zone)
         else
           table.insert(ws.slots, { zone = slotData.zone })
-          overlay.showPlaceholder(name .. ":" .. #ws.slots, hs.screen.mainScreen(), slotData.zone,
+          overlay.showPlaceholder(name .. ":" .. #ws.slots, realMainScreen(), slotData.zone,
             "unresolved: " .. slotData.bundleID)
         end
         if warning then
@@ -76,7 +93,7 @@ local function populateWorkspaceFromSaved(name, onComplete)
       end)
     else
       table.insert(ws.slots, { zone = slotData.zone })
-      overlay.showPlaceholder(name .. ":" .. #ws.slots, hs.screen.mainScreen(), slotData.zone, "empty slot")
+      overlay.showPlaceholder(name .. ":" .. #ws.slots, realMainScreen(), slotData.zone, "empty slot")
     end
   end
   finishIfDone() -- covers the all-empty-slots case, where the loop above never decrements pending
@@ -210,13 +227,14 @@ function M.promptLoadArrangement()
   chooser:show()
 end
 
-function M.start(config, gridLib, overlay, persistence, matcher, leaderModal, workspaces)
+function M.start(config, gridLib, overlay, persistence, matcher, leaderModal, workspaces, virtualDisplay)
   deps = {
     gridLib = gridLib,
     overlay = overlay,
     persistence = persistence,
     matcher = matcher,
     workspaces = workspaces,
+    virtualDisplay = virtualDisplay,
   }
 
   local saveModal = hs.hotkey.modal.new()

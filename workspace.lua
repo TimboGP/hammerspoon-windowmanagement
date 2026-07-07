@@ -1,13 +1,18 @@
 local M = {}
 M.__index = M
 
-function M.new(name, overlay, gridLib, gridConfig)
+function M.new(name, overlay, gridLib, gridConfig, hideConfig, virtualDisplay)
   return setmetatable({
     name = name,
     overlay = overlay,
     gridLib = gridLib,
     gridConfig = gridConfig,
-    slots = {}, -- ordered list of { window = hs.window|nil, zone = {x0,y0,x1,y1} }
+    hideConfig = hideConfig,         -- config.virtualDisplay table, or nil
+    virtualDisplay = virtualDisplay, -- virtualdisplay module, or nil
+    -- slots: ordered list of { window = hs.window|nil, zone = {x0,y0,x1,y1},
+    -- realScreen = hs.screen|nil } - realScreen is only set while a window is
+    -- parked on the virtual display, so it can be moved back on show().
+    slots = {},
     lastFocusedWindow = nil,
   }, M)
 end
@@ -83,28 +88,71 @@ function M:refillSlot(slot, window)
   return false
 end
 
--- Minimizes every member window, remembering whichever one is currently
--- focused so it can be restored on the next show().
+local function useVirtualDisplay(self)
+  return self.hideConfig and self.hideConfig.enabled and self.virtualDisplay ~= nil
+end
+
+-- Hides every member window, remembering whichever one is currently focused
+-- so it can be restored on the next show(). When the virtualDisplay strategy
+-- is enabled and its display is ready, windows are parked there instead of
+-- minimized, avoiding the genie/Dock animation. If the display isn't ready
+-- yet, this falls back to minimize for this call and kicks off display
+-- creation in the background so a later call can use it.
 function M:hide()
   local focused = hs.window.focusedWindow()
   if focused and self:hasWindow(focused) then
     self.lastFocusedWindow = focused
   end
+
+  local useVD = useVirtualDisplay(self)
+  local vdScreen = useVD and self.virtualDisplay.getScreen() or nil
+  if useVD and not vdScreen then
+    self.virtualDisplay.ensureDisplay(function() end) -- fire-and-forget for next time
+  end
+
   for i, slot in ipairs(self.slots) do
     if slot.window then
-      slot.window:minimize()
+      if vdScreen then
+        slot.realScreen = slot.window:screen()
+        self.virtualDisplay.parkWindow(slot.window)
+      else
+        slot.window:minimize()
+      end
     end
     self.overlay.hideBadge(slotId(self, i))
   end
 end
 
--- Unminimizes every member window, reapplies its zone (in case the screen
--- changed while hidden), and restores focus to the last-focused window.
+-- Restores a single parked window back onto its real screen. No-op if the
+-- window isn't currently parked (e.g. it was minimized, or never hidden).
+-- Shared by show() and restoreParkedWindows() so both paths handle the
+-- "virtual display disappeared out from under us" case identically.
+local function restoreSlotFromPark(self, slot)
+  if not slot.realScreen then return end
+  local stillOnVirtual = self.virtualDisplay and self.virtualDisplay.hasCachedDisplay()
+      and slot.window:screen() == self.virtualDisplay.getScreen()
+  if stillOnVirtual then
+    slot.window:moveToScreen(slot.realScreen, false, false, 0)
+  end
+  -- Otherwise the virtual display (or the window's presence on it) is gone;
+  -- leave the window wherever macOS already relocated it and let the
+  -- zone re-snap below correct its position.
+  slot.realScreen = nil
+end
+
+-- Unminimizes/un-parks every member window, reapplies its zone (in case the
+-- screen changed while hidden), and restores focus to the last-focused
+-- window. Re-snapping via grid.lua against the real screen - rather than
+-- caching an absolute frame at park time - keeps this path consistent with
+-- the minimize path above and with every other placement path in this
+-- codebase, all of which treat slot.zone as the source of truth.
 function M:show()
   for i, slot in ipairs(self.slots) do
     if slot.window then
       if slot.window:isMinimized() then
         slot.window:unminimize()
+      elseif slot.realScreen then
+        restoreSlotFromPark(self, slot)
       end
       self.gridLib.snapWindowToZone(slot.window, self.gridConfig, slot.zone)
       self.overlay.showBadge(slotId(self, i), slot.window:screen(), slot.zone, self.name)
@@ -117,6 +165,20 @@ function M:show()
   end
   if toFocus then
     toFocus:focus()
+  end
+end
+
+-- Restores any parked windows in this workspace regardless of whether it's
+-- currently shown - powers the explicit "bring back all parked windows"
+-- action, which must work even for hidden/inactive workspaces (e.g. after
+-- the vdisplay-helper daemon was killed or the display removed externally).
+-- Does not touch badges/focus, since a hidden workspace has none to show.
+function M:restoreParkedWindows()
+  for _, slot in ipairs(self.slots) do
+    if slot.window and slot.realScreen then
+      restoreSlotFromPark(self, slot)
+      self.gridLib.snapWindowToZone(slot.window, self.gridConfig, slot.zone)
+    end
   end
 end
 

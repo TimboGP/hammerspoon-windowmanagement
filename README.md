@@ -193,6 +193,52 @@ full restart resolved it.
   focus mode is exited (which restores it to its exact slot regardless of
   which workspace is currently active).
 
+## Experimental: Virtual-Display Hide/Show
+
+Off by default, opt-in via `config.virtualDisplay.enabled = true`. An
+alternative to the minimize-based hide/show described above: instead of
+minimizing a workspace's windows (which triggers the Dock genie/scale
+animation on every switch — see "Known v1 limitations" above), this parks
+them on a virtual display. A window inside any active display's bounds —
+real or virtual — never loses occlusion, so revealing it on `show()` is
+instant, with no animation.
+
+**Requires a separate, sibling daemon: [`vdisplay-helper`](https://github.com/TimboGP/vdisplay-helper).**
+This Spoon has no display-creation capability of its own — `hs.screen` can't
+create a virtual display — so it talks to that daemon over a local Unix
+socket (`~/.vdisplay-helper/vdisplay-helper.sock`) to create/find the display,
+and does the actual window moves itself via `hs.window:moveToScreen`. Install
+the daemon first (see that repo's README for `install.sh`, which builds it,
+ad-hoc signs it, and loads it as a per-user `launchd` agent
+`com.timbogp.vdisplay-helper`), then set the flag above and reload.
+
+**Philosophical note:** this project deliberately avoids private/undocumented
+macOS APIs elsewhere (that's why `hs.spaces` is rejected — see "Known v1
+limitations"). This feature is a conscious, opt-in exception to that rule: the
+daemon uses the private `CGVirtualDisplay` API, self-maintained rather than
+depending on a paid third-party app, with the private-API surface isolated
+entirely in the sibling repo rather than in this Spoon.
+
+Known caveats:
+- **Apple Silicon is the reliable target**; `CGVirtualDisplay`-based tools are
+  known to be flaky on Intel Macs with some GPUs.
+- **Private API risk**: could break on a future macOS update with no warning
+  from Apple.
+- The **first workspace switch** after enabling the feature (or after each
+  Hammerspoon restart) still shows the old minimize animation once, before
+  subsequent switches go silent — the virtual display's creation is
+  kicked off in the background rather than blocking that first switch.
+- If the `vdisplay-helper` daemon isn't installed/reachable, this Spoon
+  degrades gracefully to the normal minimize-based behavior (with a one-time
+  alert), never errors.
+- Press `r` (leader modal) or use the menu bar's "Bring Back Parked Windows"
+  to recover any parked windows across *every* workspace (not just the
+  active one) — useful after the daemon restarts or the display is removed
+  externally. This Spoon never destroys the virtual display automatically;
+  on `:stop()`, if one is still attached, you'll be asked whether to remove
+  it or leave it running (the daemon itself keeps running via `launchd`
+  either way — only the display is in question).
+
 ## Keybinding cheat-sheet
 
 All actions below start with the leader key (`cmd+ctrl+alt+space` by
@@ -210,5 +256,6 @@ default), then the listed key(s):
 | `i` | Toggle auto-track for the focused window's app |
 | `v` | Reveal: flash borders of every window in the active workspace |
 | `f`/`c` | Toggle fullscreen/centered focus mode for the focused window |
+| `r` | Bring back any parked windows (experimental virtualDisplay strategy only) |
 | `esc` (in any sub-mode) | Cancel back out |
 | `cmd+ctrl+alt+shift+esc` | Escape hatch: force-reset a stuck modal, always live |
