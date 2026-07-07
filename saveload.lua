@@ -21,17 +21,34 @@ end
 
 local function buildSaveData(ws)
   local slots = {}
+  local unresolvedCount = 0
   for _, slot in ipairs(ws.slots) do
     if slot.window then
       local app = slot.window:application()
-      table.insert(slots, {
-        zone = slot.zone,
-        bundleID = app and app:bundleID() or nil,
-        titlePattern = slot.window:title(),
-      })
+      local bundleID = app and app:bundleID() or nil
+      if not bundleID then
+        -- slot.window is stale (its owning app already quit) rather than
+        -- genuinely empty - saving it as-is would silently produce a slot
+        -- with a zone but no bundleID, which loads as an unlaunchable
+        -- placeholder forever. Drop it back to an empty slot instead, and
+        -- surface it so the user can notice and re-add the window.
+        unresolvedCount = unresolvedCount + 1
+        table.insert(slots, { zone = slot.zone })
+      else
+        table.insert(slots, {
+          zone = slot.zone,
+          bundleID = bundleID,
+          titlePattern = slot.window:title(),
+        })
+      end
     else
       table.insert(slots, { zone = slot.zone })
     end
+  end
+  if unresolvedCount > 0 then
+    hs.alert.show(
+      "WM: " .. unresolvedCount .. " window(s) in '" .. ws.name ..
+      "' had no resolvable app (likely quit) - saved as empty slot(s)", 3)
   end
   return { name = ws.name, grid = ws.gridConfig, slots = slots }
 end

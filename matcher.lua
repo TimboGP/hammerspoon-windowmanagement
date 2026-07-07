@@ -61,14 +61,30 @@ end
 -- since Hammerspoon doesn't guarantee stable userdata identity across
 -- separate :allWindows() calls for the same underlying window).
 function M.matchWindow(bundleID, titlePattern, claimedIds, callback)
-  local app = hs.application.launchOrFocusByBundleID(bundleID)
-  if not app then
+  local launched = hs.application.launchOrFocusByBundleID(bundleID)
+  if not launched then
     callback(nil, "could not launch " .. bundleID)
     return
   end
 
+  -- If the app was quit moments before this load started, macOS can take a
+  -- beat to fully deregister the old process - the launchOrFocusByBundleID
+  -- above can silently no-op against that dying instance instead of
+  -- starting a fresh one. Partway through the poll window, retry the launch
+  -- once if the app still doesn't show up as running at all.
+  local relaunchAttempted = false
+  local ticksElapsed = 0
+  local retryAfterTicks = math.max(1, math.floor((config.matchTimeout / 2) / config.matchPollInterval))
+
   pollUntil(function()
-    return (findCandidates(bundleID, titlePattern, claimedIds))
+    local titleMatch = findCandidates(bundleID, titlePattern, claimedIds)
+    ticksElapsed = ticksElapsed + 1
+    if not titleMatch and not relaunchAttempted and ticksElapsed >= retryAfterTicks
+        and not hs.application.get(bundleID) then
+      relaunchAttempted = true
+      hs.application.launchOrFocusByBundleID(bundleID)
+    end
+    return titleMatch
   end, config.matchTimeout, config.matchPollInterval, function(titleMatch)
     if titleMatch then
       callback(titleMatch, nil)

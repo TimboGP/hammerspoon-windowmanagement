@@ -21,9 +21,21 @@ local function slotId(self, index)
   return self.name .. ":" .. index
 end
 
+-- hs.window objects fetched via separate queries (e.g. app:allWindows() vs
+-- hs.window.filter's windowCreated) are distinct userdata for the same real
+-- window - Lua's == compares userdata by reference, not by the underlying
+-- AXUIElement/window. Comparing by :id() is the stable way to tell whether
+-- two handles refer to the same window (see matcher.lua's claimedIds, which
+-- works around the same issue).
+local function sameWindow(a, b)
+  if a == b then return true end
+  if not a or not b then return false end
+  return a:id() == b:id()
+end
+
 function M:hasWindow(window)
   for _, slot in ipairs(self.slots) do
-    if slot.window == window then return true end
+    if sameWindow(slot.window, window) then return true end
   end
   return false
 end
@@ -59,7 +71,7 @@ end
 -- is the caller's decision).
 function M:removeWindow(window)
   for i, slot in ipairs(self.slots) do
-    if slot.window == window then
+    if sameWindow(slot.window, window) then
       local appName = window:application() and window:application():name() or "?"
       local label = appName .. " - " .. (window:title() or "")
       slot.window = nil

@@ -46,7 +46,10 @@ local function findFocusedSlot(ws)
     return nil, nil
   end
   for _, slot in ipairs(ws.slots) do
-    if slot.window == win then
+    -- Compare by :id(), not ==: hs.window.focusedWindow() returns a distinct
+    -- userdata from whatever query originally populated slot.window, even
+    -- for the same real window (see workspace.lua's sameWindow).
+    if slot.window and slot.window:id() == win:id() then
       return slot, win
     end
   end
