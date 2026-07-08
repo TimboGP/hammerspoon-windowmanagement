@@ -39,10 +39,19 @@ Work-in-progress, built milestone by milestone:
 This repo's root *is* the Spoon (no `WindowMgmt.spoon/` subfolder) — clone
 it directly into your Spoons directory, naming the local checkout
 `WindowMgmt.spoon` (Hammerspoon matches on the local folder name, not the
-git remote's name):
+git remote's name). The wiggle effect (see "Usage" below) is powered by
+[hammerspoon-animfx](https://github.com/TimboGP/hammerspoon-animfx), vendored
+here as a git submodule, so clone with `--recurse-submodules`:
 
 ```sh
-git clone https://github.com/TimboGP/hammerspoon-windowmanagement.git ~/.hammerspoon/Spoons/WindowMgmt.spoon
+git clone --recurse-submodules https://github.com/TimboGP/hammerspoon-windowmanagement.git ~/.hammerspoon/Spoons/WindowMgmt.spoon
+```
+
+For an existing checkout that didn't clone the submodule, or after pulling
+a change that added/updated it:
+
+```sh
+git submodule update --init --recursive
 ```
 
 Or, if you keep a separate working copy elsewhere, symlink it in instead:
@@ -150,11 +159,22 @@ Accessibility).
   focus mode (`c`), or remove from the workspace — same underlying actions
   as focusing a window directly and pressing `f`/`c`/`g` `r`, just reachable
   without hunting for the window on screen first.
+- Wiggle (`j` from the leader modal): shakes the focused window — a
+  horizontal, decaying sinusoidal oscillation lasting under half a second —
+  then returns it to exactly where it was. Works even on a tiled workspace
+  member: the owning workspace's resettle watcher is paused for the
+  animation's duration (so it doesn't fight it) and the window is re-snapped
+  to its exact zone and the watcher re-armed afterward. Powered by the
+  vendored [AnimFX](https://github.com/TimboGP/hammerspoon-animfx) Spoon; if
+  that submodule isn't checked out, this alerts instead of erroring. Tunable
+  via `config.wiggle` (axis/amplitude/frequency/duration).
 - Menu bar: click the menu bar item for a dropdown mirroring the leader
-  actions — switch workspace (with a checkmark on the active one), create
-  a new workspace, save/load/delete a workspace or arrangement, toggle auto-track
-  for the focused app, and reload config. Also includes a "WindowMgmt
-  Enabled" checkbox (see "Disabling the tool" below).
+  actions, grouped under headers (Workspaces / Save & Load / Settings) with
+  the matching leader-key sequence shown next to each item — switch
+  workspace (with a checkmark on the active one), create a new workspace,
+  save/load/delete a workspace or arrangement, toggle auto-track for the
+  focused app, and reload config. Also includes a "WindowMgmt Enabled"
+  checkbox (see "Disabling the tool" below).
 
 ## Disabling the tool
 
@@ -227,6 +247,12 @@ full restart resolved it.
 - Two windows of the same app with identical titles in one workspace can't
   be reliably told apart; slot order is the tiebreaker.
 - No undo for tiling/swap actions.
+- Issuing a tiling/swap/retile command on a window while it's mid-wiggle
+  races the two: both write to the window's frame until the wiggle's own
+  completion re-snaps it to whatever zone it captured when it started,
+  which may be stale if the other command changed the zone in the meantime.
+  Wait for a wiggle to finish (well under half a second) before re-tiling
+  the same window.
 - Loading a saved workspace launches each app via
   `hs.application.launchOrFocusByBundleID`, which just starts the app
   normally — if that app has its own "show an Open panel / resume session
@@ -306,6 +332,7 @@ memorize it up front.
 | `v` | Reveal: flash borders of every window in the active workspace |
 | `f`/`c` | Toggle fullscreen/centered focus mode for the focused window |
 | `w` → `f`/`c`/`r` | List active workspace's windows, then focus/pull-out-center/remove the picked one |
+| `j` | Wiggle the focused window (works even while tiled) |
 | `r` | Bring back any parked windows (experimental virtualDisplay strategy only) |
 | `esc` (in any sub-mode) | Cancel back out |
 | `cmd+ctrl+alt+shift+esc` | Escape hatch: force-reset a stuck modal, always live |

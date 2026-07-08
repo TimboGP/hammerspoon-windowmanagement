@@ -36,6 +36,18 @@ local focus = dofile(obj.spoonPath .. "focus.lua")
 local windowlist = dofile(obj.spoonPath .. "windowlist.lua")
 local virtualdisplay = dofile(obj.spoonPath .. "virtualdisplay.lua")
 local pause = dofile(obj.spoonPath .. "pause.lua")
+local wiggle = dofile(obj.spoonPath .. "wiggle.lua")
+
+-- Vendored as a git submodule (vendor/AnimFX.spoon) rather than a second
+-- hs.loadSpoon in the user's own init.lua, to keep this Spoon's "one clone"
+-- install story intact. pcall'd so a checkout that forgot
+-- `git submodule update --init` degrades to "wiggle hotkey shows an alert"
+-- (see wiggle.lua) instead of breaking the whole Spoon's reload.
+local animFXOk, AnimFX = pcall(dofile, obj.spoonPath .. "vendor/AnimFX.spoon/init.lua")
+if not animFXOk then
+  print("WindowMgmt: AnimFX submodule not available (" .. tostring(AnimFX) .. "); wiggle will be disabled")
+  AnimFX = nil
+end
 
 local function checkAccessibility()
   if not hs.accessibilityState(false) then
@@ -78,6 +90,7 @@ function obj:start()
     saveload.forceExit()
     focus.forceExit()
     windowlist.forceExit()
+    wiggle.forceExit()
   end
 
   modal.start(self.config, {
@@ -123,6 +136,12 @@ function obj:start()
   reveal.start(self.config, overlay, modal.getInstance(), workspaces)
   focus.start(self.config, grid, modal.getInstance(), workspaces)
   windowlist.start(self.config, modal.getInstance(), workspaces, focus)
+
+  if AnimFX then
+    AnimFX:init()
+    AnimFX:start()
+  end
+  wiggle.start(self.config, AnimFX, modal.getInstance(), workspaces)
 
   -- Explicit recovery for the experimental virtualDisplay hide strategy:
   -- brings back any parked windows across every workspace (not just the
@@ -173,17 +192,39 @@ function obj:start()
     end
   end
 
-  menubar.setMenu(function()
+  -- Section headers are plain disabled items (no native "menu section" concept
+  -- in hs.menubar); grouped items are indented one level under their header
+  -- so the grouping reads visually, not just by proximity. Shortcuts shown
+  -- are informational text baked into the title - hs.menubar's `shortcut`
+  -- field sets a real NSMenuItem key equivalent (single char + implied cmd),
+  -- which would be actively wrong here since every action below is actually
+  -- a multi-key leader sequence, not a standalone hotkey.
+  local function header(title)
+    return { title = title, disabled = true }
+  end
+  local function sep()
+    return { title = "-" }
+  end
+  local function item(title, shortcut, opts)
+    opts = opts or {}
+    opts.title = shortcut and (title .. "   (" .. shortcut .. ")") or title
+    if opts.indent == nil then
+      opts.indent = 1
+    end
+    return opts
+  end
+
+  local function buildMenu()
     local cur = workspaces.current()
     local items = {
       { title = "Workspace: " .. (cur and cur.name or "none"), disabled = true },
-      { title = "-" },
-      {
-        title = "WindowMgmt Enabled",
+      item("WindowMgmt Enabled", "\u{2318}\u{2303}\u{2325}\u{21e7}Space", {
         checked = pause.isEnabled(),
         fn = function() pause.setEnabled(not pause.isEnabled()) end,
-      },
-      { title = "-" },
+        indent = 0,
+      }),
+      sep(),
+      header("Workspaces  (1-9, leader p/n)"),
     }
 
     local names = workspaces.names()
@@ -196,21 +237,24 @@ function obj:start()
           fn = function() workspaces.switchTo(name) end,
         })
       end
-      table.insert(items, { title = "Switch to", menu = switchItems })
+      table.insert(items, item("Switch to", nil, { menu = switchItems }))
     end
-    table.insert(items, { title = "New Workspace…", fn = switching.promptNewWorkspace })
-    table.insert(items, { title = "-" })
-    table.insert(items, { title = "Save Workspace…", fn = saveload.promptSaveWorkspace })
-    table.insert(items, { title = "Save Workspace As New…", fn = saveload.promptSaveAsNewWorkspace })
-    table.insert(items, { title = "Load Workspace…", fn = saveload.promptLoadWorkspace })
-    table.insert(items, { title = "Delete Workspace…", fn = saveload.promptDeleteWorkspace })
-    table.insert(items, { title = "Save Arrangement…", fn = saveload.promptSaveArrangement })
-    table.insert(items, { title = "Load Arrangement…", fn = saveload.promptLoadArrangement })
-    table.insert(items, { title = "Delete Arrangement…", fn = saveload.promptDeleteArrangement })
-    table.insert(items, { title = "-" })
-    table.insert(items, { title = "Toggle Auto-track (focused app)", fn = autotrack.toggleFocusedApp })
-    table.insert(items, {
-      title = "Show Workspace Badges",
+    table.insert(items, item("New Workspace…", "n", { fn = switching.promptNewWorkspace }))
+
+    table.insert(items, sep())
+    table.insert(items, header("Save / Load  (leader s)"))
+    table.insert(items, item("Save Workspace…", "w", { fn = saveload.promptSaveWorkspace }))
+    table.insert(items, item("Save Workspace As New…", "\u{21e7}w", { fn = saveload.promptSaveAsNewWorkspace }))
+    table.insert(items, item("Load Workspace…", "l", { fn = saveload.promptLoadWorkspace }))
+    table.insert(items, item("Delete Workspace…", "d", { fn = saveload.promptDeleteWorkspace }))
+    table.insert(items, item("Save Arrangement…", "a", { fn = saveload.promptSaveArrangement }))
+    table.insert(items, item("Load Arrangement…", "\u{21e7}l", { fn = saveload.promptLoadArrangement }))
+    table.insert(items, item("Delete Arrangement…", "\u{21e7}d", { fn = saveload.promptDeleteArrangement }))
+
+    table.insert(items, sep())
+    table.insert(items, header("Settings"))
+    table.insert(items, item("Toggle Auto-track (focused app)", "leader i", { fn = autotrack.toggleFocusedApp }))
+    table.insert(items, item("Show Workspace Badges", nil, {
       checked = overlay.badgesEnabled(),
       fn = function()
         local enabled = not overlay.badgesEnabled()
@@ -218,25 +262,28 @@ function obj:start()
         savedSettings.badgesEnabled = enabled
         persistence.saveSettings(savedSettings)
       end,
-    })
-    table.insert(items, {
-      title = "Use Virtual Display for Hide/Show",
+    }))
+    table.insert(items, item("Use Virtual Display for Hide/Show", nil, {
       checked = self.config.virtualDisplay.enabled,
       fn = toggleVirtualDisplay,
-    })
+    }))
     if self.config.virtualDisplay.enabled then
-      table.insert(items, { title = "Bring Back Parked Windows", fn = workspaces.restoreAllParked })
+      table.insert(items, item("Bring Back Parked Windows", "leader r", { fn = workspaces.restoreAllParked }))
     end
-    table.insert(items, { title = "-" })
+
+    table.insert(items, sep())
     table.insert(items, { title = "Reload Config", fn = function() hs.reload() end })
 
     return items
-  end)
+  end
+
+  menubar.setMenu(buildMenu)
 
   return self
 end
 
 function obj:stop()
+  if AnimFX then AnimFX:stop() end
   watcher.stop()
   workspaces.stop()
   saveload.stop()
