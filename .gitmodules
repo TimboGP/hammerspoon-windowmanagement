@@ -1,0 +1,3 @@
+[submodule "vendor/AnimFX.spoon"]
+	path = vendor/AnimFX.spoon
+	url = git@github.com:TimboGP/hammerspoon-animfx.git

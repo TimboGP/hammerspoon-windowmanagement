@@ -191,6 +191,34 @@ function M:retile(window, newZone)
   return false
 end
 
+-- Stops the resettle watcher for window's slot without touching slot/window
+-- state otherwise, so a caller (e.g. an animation) can move the window
+-- itself without the watcher fighting every intermediate frame. Returns
+-- true iff window is a member of this workspace (and was paused).
+function M:pauseWatch(window)
+  for _, slot in ipairs(self.slots) do
+    if sameWindow(slot.window, window) then
+      stopResettleWatch(slot)
+      return true
+    end
+  end
+  return false
+end
+
+-- Counterpart to pauseWatch: re-snaps window to slot.zone (read fresh, not a
+-- value cached at pauseWatch time, so this self-heals correctly even if
+-- something else changed the zone while paused) and re-arms the resettle
+-- watcher against that frame. No-op returning false if window isn't a member.
+function M:resumeWatch(window)
+  for _, slot in ipairs(self.slots) do
+    if sameWindow(slot.window, window) then
+      snapAndWatch(self.gridLib, slot, window, self.gridConfig, slot.zone)
+      return true
+    end
+  end
+  return false
+end
+
 -- Re-keys this workspace's overlay elements from its current name to
 -- newName before adopting it, so hide()/show() (which recompute each
 -- slot's id from self.name at call time) keep finding the same on-screen

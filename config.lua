@@ -24,6 +24,11 @@ return {
 
   modalIdleTimeout = 3.5,
 
+  -- Tunables for the `j` wiggle effect (see wiggle.lua / the vendored AnimFX
+  -- Spoon). axis: "x" or "y". amplitude in px, frequency in Hz, duration in
+  -- seconds.
+  wiggle = { axis = "x", amplitude = 18, frequency = 6, duration = 0.45 },
+
   matchTimeout = 8,
   matchPollInterval = 0.25,
 
