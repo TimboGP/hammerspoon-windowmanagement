@@ -167,14 +167,17 @@ Accessibility).
   to its exact zone and the watcher re-armed afterward. Powered by the
   vendored [AnimFX](https://github.com/TimboGP/hammerspoon-animfx) Spoon; if
   that submodule isn't checked out, this alerts instead of erroring. Tunable
-  via `config.wiggle` (axis/amplitude/frequency/duration).
+  via `config.wiggle` (axis/amplitude/frequency/duration), and can be
+  switched off entirely via `config.wiggle.enabled` or the menu bar's
+  "Enable Wiggle" checkbox — disabling only blocks new wiggles from
+  starting, an in-flight one still finishes normally.
 - Menu bar: click the menu bar item for a dropdown mirroring the leader
   actions, grouped under headers (Workspaces / Save & Load / Settings) with
   the matching leader-key sequence shown next to each item — switch
   workspace (with a checkmark on the active one), create a new workspace,
   save/load/delete a workspace or arrangement, toggle auto-track for the
-  focused app, and reload config. Also includes a "WindowMgmt Enabled"
-  checkbox (see "Disabling the tool" below).
+  focused app, toggle the wiggle hotkey on/off, and reload config. Also
+  includes a "WindowMgmt Enabled" checkbox (see "Disabling the tool" below).
 
 ## Disabling the tool
 

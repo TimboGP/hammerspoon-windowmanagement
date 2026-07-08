@@ -80,6 +80,9 @@ function obj:start()
   if savedSettings.virtualDisplayEnabled ~= nil then
     self.config.virtualDisplay.enabled = savedSettings.virtualDisplayEnabled
   end
+  if savedSettings.wiggleEnabled ~= nil then
+    self.config.wiggle.enabled = savedSettings.wiggleEnabled
+  end
 
   -- Shared by the escape hatch (recovering a stuck modal) and pause.lua
   -- (leaving everything in a clean, neutral state when disabled).
@@ -192,6 +195,19 @@ function obj:start()
     end
   end
 
+  -- Flips the `j` wiggle hotkey on/off. config.wiggle is the same table
+  -- reference wiggle.lua captured at start() time, so mutating .enabled here
+  -- takes effect immediately, no restart needed (same pattern as
+  -- toggleVirtualDisplay above). Doesn't touch an already-in-flight wiggle -
+  -- only prevents new ones from starting.
+  local function toggleWiggle()
+    local wg = self.config.wiggle
+    wg.enabled = not wg.enabled
+    savedSettings.wiggleEnabled = wg.enabled
+    persistence.saveSettings(savedSettings)
+    hs.alert.show(wg.enabled and "WM: wiggle enabled" or "WM: wiggle disabled", 1.5)
+  end
+
   -- Section headers are plain disabled items (no native "menu section" concept
   -- in hs.menubar); grouped items are indented one level under their header
   -- so the grouping reads visually, not just by proximity. Shortcuts shown
@@ -262,6 +278,10 @@ function obj:start()
         savedSettings.badgesEnabled = enabled
         persistence.saveSettings(savedSettings)
       end,
+    }))
+    table.insert(items, item("Enable Wiggle", "leader j", {
+      checked = self.config.wiggle.enabled,
+      fn = toggleWiggle,
     }))
     table.insert(items, item("Use Virtual Display for Hide/Show", nil, {
       checked = self.config.virtualDisplay.enabled,

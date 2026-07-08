@@ -25,9 +25,10 @@ return {
   modalIdleTimeout = 3.5,
 
   -- Tunables for the `j` wiggle effect (see wiggle.lua / the vendored AnimFX
-  -- Spoon). axis: "x" or "y". amplitude in px, frequency in Hz, duration in
-  -- seconds.
-  wiggle = { axis = "x", amplitude = 18, frequency = 6, duration = 0.45 },
+  -- Spoon). enabled toggles the hotkey on/off (also from the menu bar, see
+  -- init.lua). axis: "x" or "y". amplitude in px, frequency in Hz, duration
+  -- in seconds.
+  wiggle = { enabled = true, axis = "x", amplitude = 18, frequency = 6, duration = 0.45 },
 
   matchTimeout = 8,
   matchPollInterval = 0.25,

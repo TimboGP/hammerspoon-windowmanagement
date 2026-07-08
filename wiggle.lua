@@ -50,6 +50,10 @@ function M.start(config, AnimFX_, leaderModal, workspaces)
 
   leaderModal:bind({}, "j", nil, function()
     leaderModal:exit()
+    if opts.enabled == false then
+      hs.alert.show("WM: wiggle is disabled (see menu bar)", 1.5)
+      return
+    end
     if not AnimFX then
       hs.alert.show("WM: AnimFX not installed (git submodule update --init)", 2)
       return
