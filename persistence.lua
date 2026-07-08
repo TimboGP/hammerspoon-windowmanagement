@@ -84,4 +84,15 @@ function M.deleteArrangement(name)
   return deleteSaved(config.arrangementsDir, name)
 end
 
+-- Small global key/value store for cross-session UI preferences (e.g.
+-- whether workspace badges are shown), distinct from named
+-- workspaces/arrangements.
+function M.saveSettings(data)
+  return atomicSave(config.storageDir, "settings", data)
+end
+
+function M.loadSettings()
+  return hs.json.read(config.storageDir .. "/settings.json") or {}
+end
+
 return M

@@ -21,7 +21,7 @@ return {
     "com.apple.ScreenSaver.Engine",
   },
 
-  modalIdleTimeout = 5,
+  modalIdleTimeout = 3.5,
 
   matchTimeout = 8,
   matchPollInterval = 0.25,

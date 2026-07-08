@@ -5,7 +5,7 @@ local gridConfig = nil
 local placeholders = {} -- id -> { canvas, screen, zone, label }
 local hints = {}        -- id -> { canvas, screen, zone, letter }
 local badges = {}       -- id -> { canvas (nil if toggled off), screen, zone, label }
-local badgesEnabled = true
+local badgesEnabled = false
 local screenWatcher = nil
 
 local function buildPlaceholderCanvas(screen, zone, label)
@@ -29,9 +29,11 @@ local function buildPlaceholderCanvas(screen, zone, label)
       frame = { x = "5%", y = "45%", w = "90%", h = "10%" },
     },
   })
-  -- Floats above normal windows; no mouse callback is registered, so clicks
-  -- pass through rather than being captured by this overlay.
-  c:level(hs.canvas.windowLevels.overlay)
+  -- Sits below normal windows so any real window overlapping this zone (e.g.
+  -- a focus-mode window centered over an origin slot) draws on top of it
+  -- instead of the placeholder covering it. No mouse callback is registered,
+  -- so clicks pass through regardless.
+  c:level(hs.canvas.windowLevels.desktop)
   c:clickActivating(false)
   return c
 end

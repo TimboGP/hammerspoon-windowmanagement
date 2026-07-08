@@ -33,6 +33,7 @@ local watcher = dofile(obj.spoonPath .. "watcher.lua")
 local autotrack = dofile(obj.spoonPath .. "autotrack.lua")
 local reveal = dofile(obj.spoonPath .. "reveal.lua")
 local focus = dofile(obj.spoonPath .. "focus.lua")
+local windowlist = dofile(obj.spoonPath .. "windowlist.lua")
 local virtualdisplay = dofile(obj.spoonPath .. "virtualdisplay.lua")
 
 local function checkAccessibility()
@@ -54,6 +55,19 @@ function obj:start()
   menubar.start(self.config)
   overlay.start(self.config, grid)
 
+  -- Started early so persisted UI preferences (badge visibility, virtual-
+  -- display toggle) are available before anything below might otherwise act
+  -- on the config.lua defaults instead. Kept as an upvalue so the toggle
+  -- callbacks further down can update and re-save it in place.
+  persistence.start(self.config)
+  local savedSettings = persistence.loadSettings()
+  if savedSettings.badgesEnabled ~= nil then
+    overlay.setBadgesEnabled(savedSettings.badgesEnabled)
+  end
+  if savedSettings.virtualDisplayEnabled ~= nil then
+    self.config.virtualDisplay.enabled = savedSettings.virtualDisplayEnabled
+  end
+
   modal.start(self.config, {
     forceReset = function()
       tiling.forceExit()
@@ -61,6 +75,7 @@ function obj:start()
       swap.forceExit()
       saveload.forceExit()
       focus.forceExit()
+      windowlist.forceExit()
     end,
   })
 
@@ -72,7 +87,6 @@ function obj:start()
   switching.start(self.config, modal.getInstance(), workspaces)
   swap.start(self.config, grid, overlay, modal.getInstance(), workspaces)
 
-  persistence.start(self.config)
   matcher.start(self.config)
   saveload.start(self.config, grid, overlay, persistence, matcher, modal.getInstance(), workspaces, virtualdisplay)
 
@@ -82,6 +96,7 @@ function obj:start()
 
   reveal.start(self.config, overlay, modal.getInstance(), workspaces)
   focus.start(self.config, grid, modal.getInstance(), workspaces)
+  windowlist.start(self.config, modal.getInstance(), workspaces, focus)
 
   -- Explicit recovery for the experimental virtualDisplay hide strategy:
   -- brings back any parked windows across every workspace (not just the
@@ -106,11 +121,14 @@ function obj:start()
   -- hideConfig is the same table reference every Workspace instance holds
   -- (see workspaces.lua), so mutating self.config.virtualDisplay.enabled
   -- here takes effect immediately for every workspace, current and future,
-  -- with no restart needed. Does not persist across a reload - flip the
-  -- default in config.lua if you want it to start enabled every time.
+  -- with no restart needed. Persisted via savedSettings so it also survives
+  -- a reload; if the daemon isn't reachable next time, ensureDisplay's
+  -- callback below still falls back to minimize as usual.
   local function toggleVirtualDisplay()
     local vd = self.config.virtualDisplay
     vd.enabled = not vd.enabled
+    savedSettings.virtualDisplayEnabled = vd.enabled
+    persistence.saveSettings(savedSettings)
     if vd.enabled then
       hs.alert.show("WM: virtual-display hide/show enabled", 1.5)
       virtualdisplay.ensureDisplay(function(screen, err)
@@ -162,7 +180,12 @@ function obj:start()
     table.insert(items, {
       title = "Show Workspace Badges",
       checked = overlay.badgesEnabled(),
-      fn = function() overlay.setBadgesEnabled(not overlay.badgesEnabled()) end,
+      fn = function()
+        local enabled = not overlay.badgesEnabled()
+        overlay.setBadgesEnabled(enabled)
+        savedSettings.badgesEnabled = enabled
+        persistence.saveSettings(savedSettings)
+      end,
     })
     table.insert(items, {
       title = "Use Virtual Display for Hide/Show",
@@ -186,6 +209,7 @@ function obj:stop()
   saveload.stop()
   swap.stop()
   membership.stop()
+  windowlist.stop()
   tiling.stop()
   modal.stop()
   menubar.stop()

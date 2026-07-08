@@ -19,15 +19,22 @@ local function centeredZone(gridConfig)
   }
 end
 
-local function enterFocus(workspaces, zoneFn)
-  local win = hs.window.focusedWindow()
+-- winOverride lets callers other than the leaderModal bindings below (e.g.
+-- the workspace window-list picker) pull out a specific window rather than
+-- whatever currently has OS focus.
+local function enterFocus(workspaces, zoneFn, winOverride)
+  local win = winOverride or hs.window.focusedWindow()
   if not win then
     hs.alert.show("WM: no focused window", 1)
     return
   end
   local ws = workspaces.current()
   if not ws or not ws:hasWindow(win) then
-    hs.alert.show("WM: focused window isn't in the active workspace", 1.5)
+    hs.alert.show("WM: that window isn't in the active workspace", 1.5)
+    return
+  end
+  if state then
+    hs.alert.show("WM: already focusing a window (press f or c to exit first)", 1.5)
     return
   end
   -- removeWindow leaves a placeholder in the origin slot and returns that
@@ -36,6 +43,7 @@ local function enterFocus(workspaces, zoneFn)
   local slot = ws:removeWindow(win)
   state = { ws = ws, slot = slot, window = win }
   gridLib.snapWindowToZone(win, ws.gridConfig, zoneFn(ws.gridConfig))
+  win:focus()
   hs.alert.show("WM: focus mode (press f or c again to exit)", 1.5)
 end
 
@@ -74,6 +82,13 @@ end
 -- Used by the global escape hatch to recover if focus mode gets stuck.
 function M.forceExit()
   exitFocus()
+end
+
+-- Public entry point for pulling a specific window (not necessarily the
+-- currently-focused one) out to the centered zone - used by the workspace
+-- window-list picker (windowlist.lua)'s "c" action.
+function M.pullOutAndCenter(workspaces, win)
+  enterFocus(workspaces, centeredZone, win)
 end
 
 return M
