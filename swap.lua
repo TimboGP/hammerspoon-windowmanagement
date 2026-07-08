@@ -34,10 +34,14 @@ local function findNeighbor(workspace, fromSlot, direction)
   return best
 end
 
-local function swapSlots(gridLib, gridConfig, slotA, slotB)
+-- Re-snaps via ws:retile (not a raw gridLib call) so each slot's resettle
+-- watcher (workspace.lua) re-attaches to whichever window now actually
+-- occupies it, rather than the stale watcher from before the swap fighting
+-- to move it back.
+local function swapSlots(ws, slotA, slotB)
   slotA.window, slotB.window = slotB.window, slotA.window
-  gridLib.snapWindowToZone(slotA.window, gridConfig, slotA.zone)
-  gridLib.snapWindowToZone(slotB.window, gridConfig, slotB.zone)
+  ws:retile(slotA.window, slotA.zone)
+  ws:retile(slotB.window, slotB.zone)
 end
 
 local function findFocusedSlot(ws)
@@ -56,7 +60,7 @@ local function findFocusedSlot(ws)
   return nil, win
 end
 
-function M.start(config, gridLib, overlay, leaderModal, workspaces)
+function M.start(overlay, leaderModal, workspaces)
   local swapModal = hs.hotkey.modal.new()
   local activeLetters = nil -- letter -> slot, populated on entry
 
@@ -101,7 +105,7 @@ function M.start(config, gridLib, overlay, leaderModal, workspaces)
       local focusedSlot = ws and findFocusedSlot(ws)
       local target = activeLetters and activeLetters[letter]
       if focusedSlot and target then
-        swapSlots(gridLib, config.grid, focusedSlot, target)
+        swapSlots(ws, focusedSlot, target)
         hs.alert.show("WM: swapped", 1)
       end
       swapModal:exit()
@@ -119,7 +123,7 @@ function M.start(config, gridLib, overlay, leaderModal, workspaces)
       end
       local target = findNeighbor(ws, focusedSlot, direction)
       if target then
-        swapSlots(gridLib, config.grid, focusedSlot, target)
+        swapSlots(ws, focusedSlot, target)
         hs.alert.show("WM: swapped " .. direction, 1)
       else
         hs.alert.show("WM: no neighbor to the " .. direction, 1)

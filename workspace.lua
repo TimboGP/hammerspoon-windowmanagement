@@ -10,8 +10,13 @@ function M.new(name, overlay, gridLib, gridConfig, hideConfig, virtualDisplay)
     hideConfig = hideConfig,         -- config.virtualDisplay table, or nil
     virtualDisplay = virtualDisplay, -- virtualdisplay module, or nil
     -- slots: ordered list of { window = hs.window|nil, zone = {x0,y0,x1,y1},
-    -- realScreen = hs.screen|nil } - realScreen is only set while a window is
-    -- parked on the virtual display, so it can be moved back on show().
+    -- realScreen = hs.screen|nil, resettleWatcher = hs.uielement.watcher|nil }
+    -- - realScreen is only set while a window is parked on the virtual
+    -- display, so it can be moved back on show(); resettleWatcher is set
+    -- for as long as the workspace is shown, fighting any drift away from
+    -- slot.zone (see snapAndWatch below) - retile() below is how a
+    -- deliberate zone change (tiling, swap) updates what it defends instead
+    -- of being fought by it.
     slots = {},
     lastFocusedWindow = nil,
   }, M)
@@ -25,7 +30,69 @@ end
 -- the OS level; hs.window:setFrame() calls issued before that animation
 -- settles are known to be silently dropped, so the post-unminimize zone
 -- snap in show() below has to wait rather than running in the same tick.
-local UNMINIMIZE_SETTLE_DELAY = 0.35
+local UNMINIMIZE_ANIMATION_DELAY = 0.35
+
+-- Some apps (confirmed via logging: Slack, Outlook) go further and
+-- asynchronously re-apply their own last-remembered window bounds sometime
+-- after being unminimized/refocused - observed 8-13s later after sitting
+-- minimized for an hour, presumably once their own reconnect/resync finishes
+-- - the window visibly lands in its zone, then "jumps" back out to a stale
+-- cached size (an exact half/quarter of the screen in both observed cases,
+-- from some prior manual macOS window-tile action, long before this tool
+-- ever managed them). The delay isn't reliably bounded, so rather than
+-- guess a timeout, this watches the window's own AX move/resize
+-- notifications for as long as the workspace stays shown and re-snaps
+-- whenever it drifts from the frame we last set. A re-snap that lands on
+-- the frame we already hold produces no further notification, so this is a
+-- no-op once the app stops interfering (or for windows, e.g. Mail, that
+-- never self-reposition at all) rather than fighting anything continuously.
+-- hide()/removeWindow() stop the watcher so it never fights a placement
+-- change this tool itself intends (focus mode, workspace switch, etc).
+local FRAME_EPSILON = 2
+
+local function frameMatches(a, b)
+  if not a or not b then return false end
+  return math.abs(a.x - b.x) <= FRAME_EPSILON and math.abs(a.y - b.y) <= FRAME_EPSILON
+      and math.abs(a.w - b.w) <= FRAME_EPSILON and math.abs(a.h - b.h) <= FRAME_EPSILON
+end
+
+local function stopResettleWatch(slot)
+  if slot.resettleWatcher then
+    slot.resettleWatcher:stop()
+    slot.resettleWatcher = nil
+  end
+end
+
+-- Snaps window into zone now, then keeps re-snapping it for as long as this
+-- workspace stays shown (see the comment above) whenever it moves/resizes
+-- away from the frame we set. Stores the watcher on slot so a later
+-- hide()/removeWindow() can stop it.
+local function snapAndWatch(gridLib, slot, win, gridConfig, zone)
+  stopResettleWatch(slot)
+  local targetFrame = gridLib.snapWindowToZone(win, gridConfig, zone)
+
+  local watcher
+  watcher = win:newWatcher(function(_, event)
+    if event == hs.uielement.watcher.elementDestroyed then
+      watcher:stop()
+      return
+    end
+    local ok, currentFrame = pcall(function() return win:frame() end)
+    if not ok or not currentFrame or frameMatches(currentFrame, targetFrame) then
+      return
+    end
+    local newFrame = gridLib.snapWindowToZone(win, gridConfig, zone)
+    if newFrame then
+      targetFrame = newFrame
+    end
+  end)
+  watcher:start({
+    hs.uielement.watcher.windowMoved,
+    hs.uielement.watcher.windowResized,
+    hs.uielement.watcher.elementDestroyed,
+  })
+  slot.resettleWatcher = watcher
+end
 
 -- hs.window objects fetched via separate queries (e.g. app:allWindows() vs
 -- hs.window.filter's windowCreated) are distinct userdata for the same real
@@ -58,7 +125,7 @@ function M:addWindow(window)
   for i, slot in ipairs(self.slots) do
     if not slot.window then
       slot.window = window
-      self.gridLib.snapWindowToZone(window, self.gridConfig, slot.zone)
+      snapAndWatch(self.gridLib, slot, window, self.gridConfig, slot.zone)
       self.overlay.hidePlaceholder(slotId(self, i))
       self.overlay.showBadge(slotId(self, i), window:screen(), slot.zone, self.name)
       return slot
@@ -66,9 +133,11 @@ function M:addWindow(window)
   end
 
   local zone = self.gridLib.frameToZone(window:screen():frame(), self.gridConfig, window:frame())
-  table.insert(self.slots, { window = window, zone = zone })
+  local slot = { window = window, zone = zone }
+  table.insert(self.slots, slot)
+  snapAndWatch(self.gridLib, slot, window, self.gridConfig, zone)
   self.overlay.showBadge(slotId(self, #self.slots), window:screen(), zone, self.name)
-  return self.slots[#self.slots]
+  return slot
 end
 
 -- Unregisters the window from its slot, leaving the zone as an empty
@@ -80,6 +149,7 @@ function M:removeWindow(window)
     if sameWindow(slot.window, window) then
       local appName = window:application() and window:application():name() or "?"
       local label = appName .. " - " .. (window:title() or "")
+      stopResettleWatch(slot)
       slot.window = nil
       self.overlay.hideBadge(slotId(self, i))
       self.overlay.showPlaceholder(slotId(self, i), window:screen(), slot.zone, label)
@@ -97,9 +167,24 @@ function M:refillSlot(slot, window)
   for i, s in ipairs(self.slots) do
     if s == slot then
       slot.window = window
-      self.gridLib.snapWindowToZone(window, self.gridConfig, slot.zone)
+      snapAndWatch(self.gridLib, slot, window, self.gridConfig, slot.zone)
       self.overlay.hidePlaceholder(slotId(self, i))
       self.overlay.showBadge(slotId(self, i), window:screen(), slot.zone, self.name)
+      return true
+    end
+  end
+  return false
+end
+
+-- Deliberately changes a member window's zone (e.g. from the tiling or swap
+-- modules) and re-points the resettle watcher at the new frame, instead of
+-- leaving it defending the old one and immediately undoing the change.
+-- Returns false if window isn't a member of this workspace.
+function M:retile(window, newZone)
+  for _, slot in ipairs(self.slots) do
+    if sameWindow(slot.window, window) then
+      slot.zone = newZone
+      snapAndWatch(self.gridLib, slot, window, self.gridConfig, newZone)
       return true
     end
   end
@@ -141,6 +226,7 @@ function M:hide()
 
   for i, slot in ipairs(self.slots) do
     if slot.window then
+      stopResettleWatch(slot)
       if vdScreen then
         slot.realScreen = slot.window:screen()
         self.virtualDisplay.parkWindow(slot.window)
@@ -182,14 +268,16 @@ function M:show()
       local zone = slot.zone
       if win:isMinimized() then
         win:unminimize()
-        hs.timer.doAfter(UNMINIMIZE_SETTLE_DELAY, function()
-          self.gridLib.snapWindowToZone(win, self.gridConfig, zone)
+        hs.timer.doAfter(UNMINIMIZE_ANIMATION_DELAY, function()
+          if not win:isMinimized() then
+            snapAndWatch(self.gridLib, slot, win, self.gridConfig, zone)
+          end
         end)
       else
         if slot.realScreen then
           restoreSlotFromPark(self, slot)
         end
-        self.gridLib.snapWindowToZone(win, self.gridConfig, zone)
+        snapAndWatch(self.gridLib, slot, win, self.gridConfig, zone)
       end
       self.overlay.showBadge(slotId(self, i), win:screen(), zone, self.name)
     end

@@ -2,16 +2,25 @@ local M = {}
 
 local function clamp(v, lo, hi) return math.max(lo, math.min(v, hi)) end
 
-function M.start(config, gridLib, leaderModal)
+function M.start(config, gridLib, leaderModal, workspaces)
   local presets = gridLib.presetZones(config.grid)
 
+  -- Routes through the workspace's retile() when the window is a member, so
+  -- workspace.lua's resettle watcher (which otherwise fights any frame
+  -- change as unwanted drift) re-points at this new zone instead of
+  -- immediately snapping the window back to its old one.
   local function snap(zone)
     local win = hs.window.focusedWindow()
     if not win then
       hs.alert.show("WM: no focused window", 1)
       return
     end
-    gridLib.snapWindowToZone(win, config.grid, zone)
+    local ws = workspaces.current()
+    if ws and ws:hasWindow(win) then
+      ws:retile(win, zone)
+    else
+      gridLib.snapWindowToZone(win, config.grid, zone)
+    end
   end
 
   local tilingModal = hs.hotkey.modal.new()

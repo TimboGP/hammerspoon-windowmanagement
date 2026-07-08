@@ -79,13 +79,13 @@ function obj:start()
     end,
   })
 
-  tiling.start(self.config, grid, modal.getInstance())
+  tiling.start(self.config, grid, modal.getInstance(), workspaces)
 
   virtualdisplay.start(self.config)
   workspaces.start(self.config, Workspace, overlay, grid, menubar, virtualdisplay)
   membership.start(self.config, modal.getInstance(), workspaces)
   switching.start(self.config, modal.getInstance(), workspaces)
-  swap.start(self.config, grid, overlay, modal.getInstance(), workspaces)
+  swap.start(overlay, modal.getInstance(), workspaces)
 
   matcher.start(self.config)
   saveload.start(self.config, grid, overlay, persistence, matcher, modal.getInstance(), workspaces, virtualdisplay)
