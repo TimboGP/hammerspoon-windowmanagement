@@ -292,6 +292,35 @@ function M:show()
   end
 end
 
+-- Re-fits every member window to its zone against whatever screen it's
+-- currently on. Zones are stored as grid-relative fractions of a screen,
+-- not absolute pixels, so they're already resolution-independent - but
+-- they only get recomputed against the *current* screen when something
+-- explicitly re-snaps. Nothing does that when a monitor is connected/
+-- disconnected mid-session, so workspaces.lua calls this (for the current
+-- workspace only) on hs.screen.watcher events. Windows macOS already
+-- relocated on its own (e.g. off a monitor that just disconnected) get
+-- fit to wherever they actually landed, same as everywhere else in this
+-- file. Skips minimized windows (nothing to re-fit) and windows pulled out
+-- via focus mode (already removed from their slot).
+function M:resnapAll()
+  for i, slot in ipairs(self.slots) do
+    if slot.window and not slot.window:isMinimized() then
+      snapAndWatch(self.gridLib, slot, slot.window, self.gridConfig, slot.zone)
+      self.overlay.showBadge(slotId(self, i), slot.window:screen(), slot.zone, self.name)
+    end
+  end
+end
+
+-- Stops every active resettle watcher without touching window/slot state
+-- otherwise - used when the tool is paused (pause.lua), so it immediately
+-- stops fighting drift without minimizing or moving anything.
+function M:stopAllWatches()
+  for _, slot in ipairs(self.slots) do
+    stopResettleWatch(slot)
+  end
+end
+
 -- Restores any parked windows in this workspace regardless of whether it's
 -- currently shown - powers the explicit "bring back all parked windows"
 -- action, which must work even for hidden/inactive workspaces (e.g. after

@@ -35,6 +35,7 @@ local reveal = dofile(obj.spoonPath .. "reveal.lua")
 local focus = dofile(obj.spoonPath .. "focus.lua")
 local windowlist = dofile(obj.spoonPath .. "windowlist.lua")
 local virtualdisplay = dofile(obj.spoonPath .. "virtualdisplay.lua")
+local pause = dofile(obj.spoonPath .. "pause.lua")
 
 local function checkAccessibility()
   if not hs.accessibilityState(false) then
@@ -68,24 +69,49 @@ function obj:start()
     self.config.virtualDisplay.enabled = savedSettings.virtualDisplayEnabled
   end
 
+  -- Shared by the escape hatch (recovering a stuck modal) and pause.lua
+  -- (leaving everything in a clean, neutral state when disabled).
+  local function resetAllSubmodals()
+    tiling.forceExit()
+    membership.forceExit()
+    swap.forceExit()
+    saveload.forceExit()
+    focus.forceExit()
+    windowlist.forceExit()
+  end
+
   modal.start(self.config, {
-    forceReset = function()
-      tiling.forceExit()
-      membership.forceExit()
-      swap.forceExit()
-      saveload.forceExit()
-      focus.forceExit()
-      windowlist.forceExit()
-    end,
+    forceReset = resetAllSubmodals,
+    isPaused = pause.isEnabled,
   })
 
   tiling.start(self.config, grid, modal.getInstance(), workspaces)
 
   virtualdisplay.start(self.config)
-  workspaces.start(self.config, Workspace, overlay, grid, menubar, virtualdisplay)
+  workspaces.start(self.config, Workspace, overlay, grid, menubar, virtualdisplay, pause)
   membership.start(self.config, modal.getInstance(), workspaces)
   switching.start(self.config, modal.getInstance(), workspaces)
   swap.start(overlay, modal.getInstance(), workspaces)
+
+  -- Global on/off switch, independent of the leader modal (see pause.lua) -
+  -- disabling force-resets any stuck sub-modal, stops auto-tracking new
+  -- windows, and stops the current workspace's resettle watchers so it
+  -- immediately stops fighting anyone moving windows around; re-enabling
+  -- only restarts auto-tracking; watchers re-arm naturally the next time
+  -- something actually re-tiles or switches workspace, rather than
+  -- retroactively snapping everything back the instant it's re-enabled.
+  pause.start(self.config, {
+    onDisabled = function()
+      modal.getInstance():exit()
+      resetAllSubmodals()
+      watcher.stop()
+      local cur = workspaces.current()
+      if cur then cur:stopAllWatches() end
+    end,
+    onEnabled = function()
+      watcher.refresh()
+    end,
+  })
 
   matcher.start(self.config)
   saveload.start(self.config, grid, overlay, persistence, matcher, modal.getInstance(), workspaces, virtualdisplay)
@@ -152,6 +178,12 @@ function obj:start()
     local items = {
       { title = "Workspace: " .. (cur and cur.name or "none"), disabled = true },
       { title = "-" },
+      {
+        title = "WindowMgmt Enabled",
+        checked = pause.isEnabled(),
+        fn = function() pause.setEnabled(not pause.isEnabled()) end,
+      },
+      { title = "-" },
     }
 
     local names = workspaces.names()
@@ -206,6 +238,7 @@ end
 
 function obj:stop()
   watcher.stop()
+  workspaces.stop()
   saveload.stop()
   swap.stop()
   membership.stop()

@@ -22,6 +22,11 @@ function M.start(config, callbacks)
   }, "\n")
 
   function modal:entered()
+    if callbacks.isPaused and callbacks.isPaused() then
+      modal:exit()
+      hs.alert.show("WM: disabled (see menu bar or the pause hotkey to re-enable)", 2)
+      return
+    end
     hs.alert.show(cheatSheet, 3.5)
     resetIdleTimer()
     if callbacks.entered then callbacks.entered() end

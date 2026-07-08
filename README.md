@@ -145,10 +145,33 @@ Accessibility).
   original slot (not just any empty slot). Only one window can be in focus
   mode at a time; entering focus mode on a different window first restores
   whatever was already focused.
+- Window list (`w` from the leader modal): lists every window in the active
+  workspace in a chooser, then `f`/`c`/`r` pick one to focus, pull out to
+  focus mode (`c`), or remove from the workspace — same underlying actions
+  as focusing a window directly and pressing `f`/`c`/`g` `r`, just reachable
+  without hunting for the window on screen first.
 - Menu bar: click the menu bar item for a dropdown mirroring the leader
   actions — switch workspace (with a checkmark on the active one), create
   a new workspace, save/load/delete a workspace or arrangement, toggle auto-track
-  for the focused app, and reload config.
+  for the focused app, and reload config. Also includes a "WindowMgmt
+  Enabled" checkbox (see "Disabling the tool" below).
+
+## Disabling the tool
+
+`cmd+ctrl+alt+shift+space` (independent of the leader key, always live)
+toggles the whole tool on/off, and the menu bar's "WindowMgmt Enabled"
+checkbox does the same. Use this instead of quitting Hammerspoon when you
+don't want tiling forced on someone — e.g. handing your laptop to someone
+else, or screen-sharing — without losing your workspace layout or affecting
+any other Hammerspoon config you run alongside this Spoon.
+
+Disabling: force-resets any stuck sub-mode, stops auto-tracking new windows,
+and stops the active workspace from re-snapping windows that drift out of
+their zone (see "Known v1 limitations" below on why that exists at all).
+Re-enabling only restarts auto-tracking — it deliberately does *not*
+retroactively re-tile whatever's currently on screen, so nothing jumps the
+moment you turn it back on; the next real tile/swap/workspace-switch
+re-arms enforcement for whatever windows it touches.
 
 ## Troubleshooting
 
@@ -172,7 +195,24 @@ full restart resolved it.
 
 ## Known v1 limitations
 
-- **Single monitor only.**
+- **Single monitor only** in the sense that a workspace's grid always maps
+  onto whichever single screen its windows are actually on — there's no
+  concept of tiling across two monitors at once with independent grids.
+  Connecting/disconnecting a monitor (e.g. undocking a laptop) *is* handled:
+  zones are stored as grid-relative fractions, not absolute pixels, so the
+  active workspace's windows are automatically re-fit to whatever screen
+  they land on after a display change (debounced ~1s after the last
+  screen-configuration event, to avoid re-fitting mid-flicker while macOS is
+  still settling the new arrangement).
+- Some apps (observed: Slack, Outlook) asynchronously re-apply their own
+  stale, self-remembered window bounds sometime after being unminimized or
+  refocused — anywhere from a few seconds to over ten, especially after
+  sitting minimized for a while. Rather than fight that with a fixed delay,
+  the active workspace keeps an AX-level watcher on each window and
+  re-snaps it whenever it drifts, for as long as the workspace stays shown.
+  A side effect: while a window is a workspace member and its workspace is
+  visible, manually dragging/resizing it will get snapped back too — pull
+  it out via focus mode (`f`/`c`) first if you want to reposition it freely.
 - "Hide" is implemented as **minimize**, not a true instant per-window
   hide — macOS/Hammerspoon has no public API for hiding a single window
   independent of its app (hiding is either app-wide, or requires private
@@ -265,6 +305,8 @@ memorize it up front.
 | `i` | Toggle auto-track for the focused window's app |
 | `v` | Reveal: flash borders of every window in the active workspace |
 | `f`/`c` | Toggle fullscreen/centered focus mode for the focused window |
+| `w` → `f`/`c`/`r` | List active workspace's windows, then focus/pull-out-center/remove the picked one |
 | `r` | Bring back any parked windows (experimental virtualDisplay strategy only) |
 | `esc` (in any sub-mode) | Cancel back out |
 | `cmd+ctrl+alt+shift+esc` | Escape hatch: force-reset a stuck modal, always live |
+| `cmd+ctrl+alt+shift+space` | Toggle the whole tool on/off, always live (see "Disabling the tool") |

@@ -3,6 +3,7 @@ local home = os.getenv("HOME")
 return {
   leader = { { "cmd", "ctrl", "alt" }, "space" },
   escapeHatch = { { "cmd", "ctrl", "alt", "shift" }, "escape" },
+  pauseHotkey = { { "cmd", "ctrl", "alt", "shift" }, "space" },
 
   grid = { cols = 12, rows = 12 },
 

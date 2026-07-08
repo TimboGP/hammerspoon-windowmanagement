@@ -7,12 +7,20 @@ local gridConfig = nil
 local menubar = nil
 local hideConfig = nil
 local virtualDisplay = nil
+local pause = nil
 
 local all = {}       -- name -> Workspace instance
 local slotNames = {} -- 1..9 -> name
 local currentName = nil
 
-function M.start(config, workspaceClass, overlayModule, grid, menubarModule, virtualDisplayModule)
+local screenWatcher = nil
+local rescreenTimer = nil
+-- Debounced so a single physical connect/disconnect (which macOS reports as
+-- a burst of several screen-change notifications while it settles) only
+-- triggers one re-fit instead of several redundant ones.
+local RESCREEN_DEBOUNCE = 1.0
+
+function M.start(config, workspaceClass, overlayModule, grid, menubarModule, virtualDisplayModule, pauseModule)
   Workspace = workspaceClass
   overlay = overlayModule
   gridLib = grid
@@ -20,6 +28,37 @@ function M.start(config, workspaceClass, overlayModule, grid, menubarModule, vir
   menubar = menubarModule
   hideConfig = config.virtualDisplay
   virtualDisplay = virtualDisplayModule
+  pause = pauseModule
+
+  -- Zones are grid-relative fractions of a screen, not absolute pixels, so
+  -- they're already resolution-independent - but nothing recomputes them
+  -- against the *current* screen when a monitor is connected/disconnected
+  -- mid-session (only the current, visible workspace needs this; a hidden
+  -- one's windows are minimized and get fit fresh whenever it's next shown).
+  -- Skipped while paused, matching the "hands off entirely" contract of
+  -- pause.lua - reconnecting a monitor shouldn't retile someone else's
+  -- windows on a laptop the user deliberately disabled tiling on.
+  screenWatcher = hs.screen.watcher.new(function()
+    if rescreenTimer then rescreenTimer:stop() end
+    rescreenTimer = hs.timer.doAfter(RESCREEN_DEBOUNCE, function()
+      rescreenTimer = nil
+      if pause and not pause.isEnabled() then return end
+      local cur = M.current()
+      if cur then cur:resnapAll() end
+    end)
+  end)
+  screenWatcher:start()
+end
+
+function M.stop()
+  if screenWatcher then
+    screenWatcher:stop()
+    screenWatcher = nil
+  end
+  if rescreenTimer then
+    rescreenTimer:stop()
+    rescreenTimer = nil
+  end
 end
 
 local function create(name)
