@@ -12,6 +12,10 @@ function M.isEnabled()
   return enabled
 end
 
+function M.isPaused()
+  return not enabled
+end
+
 function M.start(config, callbacks)
   callbacks = callbacks or {}
 

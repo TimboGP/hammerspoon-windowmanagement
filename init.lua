@@ -82,7 +82,7 @@ function obj:start()
 
   modal.start(self.config, {
     forceReset = resetAllSubmodals,
-    isPaused = pause.isEnabled,
+    isPaused = pause.isPaused,
   })
 
   tiling.start(self.config, grid, modal.getInstance(), workspaces)
