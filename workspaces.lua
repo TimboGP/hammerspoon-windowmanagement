@@ -61,8 +61,17 @@ function M.stop()
   end
 end
 
+-- Passed to every Workspace as onDirtyChange - refreshStatus() always reads
+-- back from M.current() rather than trusting which workspace fired the
+-- callback, so a background workspace's dirty flag flipping (e.g. autotrack
+-- adding a window to it) can't stomp the menu bar's picture of the visible
+-- one.
+local function onWorkspaceDirtyChange()
+  M.refreshStatus()
+end
+
 local function create(name)
-  local ws = Workspace.new(name, overlay, gridLib, gridConfig, hideConfig, virtualDisplay)
+  local ws = Workspace.new(name, overlay, gridLib, gridConfig, hideConfig, virtualDisplay, onWorkspaceDirtyChange)
   all[name] = ws
   return ws
 end
@@ -78,6 +87,20 @@ end
 
 function M.get(name)
   return all[name]
+end
+
+-- Single place that pushes the current workspace's name/dirty state to the
+-- menu bar - called on activate/rename and whenever any workspace's dirty
+-- flag flips, so the title is always recomputed from live state rather than
+-- patched incrementally in multiple call sites.
+function M.refreshStatus()
+  if not menubar then return end
+  local cur = M.current()
+  if not cur then
+    menubar.setStatus("no workspace")
+    return
+  end
+  menubar.setStatus(cur.name .. (cur.dirty and " \u{25cf}" or ""))
 end
 
 -- Hides the current workspace, if any, without changing which one is
@@ -99,9 +122,7 @@ function M.activate(name)
   if target then
     target:show()
   end
-  if menubar then
-    menubar.setStatus(name)
-  end
+  M.refreshStatus()
   return target
 end
 
@@ -155,8 +176,8 @@ function M.rename(oldName, newName)
       slotNames[slotNumber] = newName
     end
   end
-  if menubar and currentName == newName then
-    menubar.setStatus(newName)
+  if currentName == newName then
+    M.refreshStatus()
   end
   return true
 end

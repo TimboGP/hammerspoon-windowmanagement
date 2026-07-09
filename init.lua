@@ -232,8 +232,9 @@ function obj:start()
 
   local function buildMenu()
     local cur = workspaces.current()
+    local wsLabel = cur and (cur.name .. (cur.dirty and " (unsaved changes)" or "")) or "none"
     local items = {
-      { title = "Workspace: " .. (cur and cur.name or "none"), disabled = true },
+      { title = "Workspace: " .. wsLabel, disabled = true },
       item("WindowMgmt Enabled", "\u{2318}\u{2303}\u{2325}\u{21e7}Space", {
         checked = pause.isEnabled(),
         fn = function() pause.setEnabled(not pause.isEnabled()) end,

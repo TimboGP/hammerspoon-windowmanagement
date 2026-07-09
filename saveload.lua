@@ -53,6 +53,11 @@ local function buildSaveData(ws)
   return { name = ws.name, grid = ws.gridConfig, slots = slots }
 end
 
+-- Pure write to disk under `name` - does not touch ws's dirty flag, since
+-- that depends on whether `name` is ws's own identity (see call sites:
+-- promptSaveWorkspace and the arrangement member-refresh loop mark clean
+-- after this; promptSaveAsNewWorkspace deliberately does not, since it
+-- writes a duplicate rather than syncing ws's own on-disk file).
 local function saveWorkspaceNamed(ws, name)
   return deps.persistence.saveWorkspace(name, buildSaveData(ws))
 end
@@ -205,6 +210,8 @@ function M.promptSaveWorkspace()
   end
   local ok, err = saveWorkspaceNamed(ws, name)
   if ok then
+    ws:markClean()
+    deps.workspaces.refreshStatus()
     hs.alert.show("WM: saved '" .. name .. "'", 1.5)
   else
     hs.alert.show("WM: save failed - " .. tostring(err), 2)
@@ -248,9 +255,13 @@ function M.promptSaveArrangement()
   for _, wsName in ipairs(names) do
     local ws = deps.workspaces.get(wsName)
     if ws then
-      saveWorkspaceNamed(ws, wsName)
+      local wsOk = saveWorkspaceNamed(ws, wsName)
+      if wsOk then
+        ws:markClean()
+      end
     end
   end
+  deps.workspaces.refreshStatus()
   local ok, err = deps.persistence.saveArrangement(name, {
     name = name,
     workspaces = names,

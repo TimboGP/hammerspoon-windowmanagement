@@ -1,7 +1,7 @@
 local M = {}
 M.__index = M
 
-function M.new(name, overlay, gridLib, gridConfig, hideConfig, virtualDisplay)
+function M.new(name, overlay, gridLib, gridConfig, hideConfig, virtualDisplay, onDirtyChange)
   return setmetatable({
     name = name,
     overlay = overlay,
@@ -9,6 +9,7 @@ function M.new(name, overlay, gridLib, gridConfig, hideConfig, virtualDisplay)
     gridConfig = gridConfig,
     hideConfig = hideConfig,         -- config.virtualDisplay table, or nil
     virtualDisplay = virtualDisplay, -- virtualdisplay module, or nil
+    onDirtyChange = onDirtyChange,   -- called whenever self.dirty flips, or nil
     -- slots: ordered list of { window = hs.window|nil, zone = {x0,y0,x1,y1},
     -- realScreen = hs.screen|nil, resettleWatcher = hs.uielement.watcher|nil }
     -- - realScreen is only set while a window is parked on the virtual
@@ -19,7 +20,23 @@ function M.new(name, overlay, gridLib, gridConfig, hideConfig, virtualDisplay)
     -- of being fought by it.
     slots = {},
     lastFocusedWindow = nil,
+    dirty = false,
   }, M)
+end
+
+-- Flips dirty true/false and fires onDirtyChange only on an actual
+-- transition, so callers (the menu bar) aren't asked to redraw on every
+-- membership change once already dirty.
+local function setDirty(self, value)
+  if self.dirty == value then return end
+  self.dirty = value
+  if self.onDirtyChange then self.onDirtyChange(self) end
+end
+
+-- Called by saveload.lua once a save actually succeeds, so the on-disk
+-- snapshot and the in-memory workspace are back in sync.
+function M:markClean()
+  setDirty(self, false)
 end
 
 local function slotId(self, index)
@@ -122,6 +139,8 @@ function M:addWindow(window)
     return
   end
 
+  setDirty(self, true)
+
   for i, slot in ipairs(self.slots) do
     if not slot.window then
       slot.window = window
@@ -151,6 +170,7 @@ function M:removeWindow(window)
       local label = appName .. " - " .. (window:title() or "")
       stopResettleWatch(slot)
       slot.window = nil
+      setDirty(self, true)
       self.overlay.hideBadge(slotId(self, i))
       self.overlay.showPlaceholder(slotId(self, i), window:screen(), slot.zone, label)
       return slot
@@ -167,6 +187,7 @@ function M:refillSlot(slot, window)
   for i, s in ipairs(self.slots) do
     if s == slot then
       slot.window = window
+      setDirty(self, true)
       snapAndWatch(self.gridLib, slot, window, self.gridConfig, slot.zone)
       self.overlay.hidePlaceholder(slotId(self, i))
       self.overlay.showBadge(slotId(self, i), window:screen(), slot.zone, self.name)
@@ -184,6 +205,7 @@ function M:retile(window, newZone)
   for _, slot in ipairs(self.slots) do
     if sameWindow(slot.window, window) then
       slot.zone = newZone
+      setDirty(self, true)
       snapAndWatch(self.gridLib, slot, window, self.gridConfig, newZone)
       return true
     end
