@@ -170,7 +170,11 @@ Accessibility).
   via `config.wiggle` (axis/amplitude/frequency/duration), and can be
   switched off entirely via `config.wiggle.enabled` or the menu bar's
   "Enable Wiggle" checkbox — disabling only blocks new wiggles from
-  starting, an in-flight one still finishes normally.
+  starting, an in-flight one still finishes normally. Also triggerable from
+  outside Hammerspoon via `hs -c "spoon.WindowMgmt:wiggleFocusedWindow()"` —
+  same tiling-safe behavior as pressing `j` (returns `true`, or
+  `false, "<reason>"` if disabled, no focused window, or AnimFX isn't
+  installed).
 - Menu bar: click the menu bar item for a dropdown mirroring the leader
   actions, grouped under headers (Workspaces / Save & Load / Settings) with
   the matching leader-key sequence shown next to each item — switch

@@ -348,4 +348,15 @@ function obj:bindHotkeys(mapping)
   return self
 end
 
+-- Public scripting entry point, e.g. `hs -c "spoon.WindowMgmt:wiggleFocusedWindow()"`
+-- from an external process (see the sibling animfx.nvim's WISHLIST.md) — same
+-- tiling-safe wiggle behavior as pressing `j` from the leader modal, since it
+-- delegates to the exact same wiggle.lua entry point the hotkey uses. Returns
+-- `ok, err` (err is nil on success) so a scripted caller can detect failure
+-- (disabled, no focused window, AnimFX submodule missing) without relying on
+-- the visual alert.
+function obj:wiggleFocusedWindow(opts)
+  return wiggle.wiggleWindow(hs.window.focusedWindow(), opts)
+end
+
 return obj

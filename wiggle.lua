@@ -11,7 +11,20 @@ local AnimFX = nil
 -- wiggle can run at a time (mirrors focus.lua's single-`state` pattern).
 local current = nil
 
+-- Set by M.start; module-level (like AnimFX above) so M.wiggleWindow is
+-- reachable from outside the leaderModal hotkey closure below, e.g. from an
+-- external `hs -c` caller via obj:wiggleFocusedWindow in init.lua.
+local workspacesRef = nil
+local defaultOpts = {}
+
 local DEFAULTS = { axis = "x", amplitude = 18, frequency = 6, duration = 0.45 }
+
+-- Per-error-string alert duration, preserved exactly from the original
+-- inline hotkey checks below.
+local ALERT_DURATIONS = {
+  ["wiggle is disabled (see menu bar)"] = 1.5,
+  ["no focused window"] = 1,
+}
 
 local function isAlive(win)
   local ok, visible = pcall(function() return win:isVisible() ~= nil end)
@@ -44,26 +57,40 @@ local function startWiggle(workspaces, win, opts)
   current = { win = win, cancel = handle.cancel }
 end
 
+-- Public entry point for wiggling a specific window, used by both the `j`
+-- hotkey below and external callers (e.g. `hs -c
+-- "spoon.WindowMgmt:wiggleFocusedWindow()"`, see obj:wiggleFocusedWindow in
+-- init.lua). Returns `ok, err` rather than alerting directly, so a scripted
+-- caller can inspect failure instead of just seeing a Hammerspoon alert flash
+-- by. Preserves the original hotkey's exact check order (disabled -> AnimFX
+-- missing -> no focused window), since reordering would silently change
+-- which alert wins when multiple conditions are true at once.
+function M.wiggleWindow(win, opts)
+  opts = opts or defaultOpts
+  if opts.enabled == false then
+    return false, "wiggle is disabled (see menu bar)"
+  end
+  if not AnimFX then
+    return false, "AnimFX not installed (git submodule update --init)"
+  end
+  if not win then
+    return false, "no focused window"
+  end
+  startWiggle(workspacesRef, win, opts)
+  return true
+end
+
 function M.start(config, AnimFX_, leaderModal, workspaces)
   AnimFX = AnimFX_
-  local opts = config.wiggle or {}
+  workspacesRef = workspaces
+  defaultOpts = config.wiggle or {}
 
   leaderModal:bind({}, "j", nil, function()
     leaderModal:exit()
-    if opts.enabled == false then
-      hs.alert.show("WM: wiggle is disabled (see menu bar)", 1.5)
-      return
+    local ok, err = M.wiggleWindow(hs.window.focusedWindow())
+    if not ok then
+      hs.alert.show("WM: " .. err, ALERT_DURATIONS[err] or 2)
     end
-    if not AnimFX then
-      hs.alert.show("WM: AnimFX not installed (git submodule update --init)", 2)
-      return
-    end
-    local win = hs.window.focusedWindow()
-    if not win then
-      hs.alert.show("WM: no focused window", 1)
-      return
-    end
-    startWiggle(workspaces, win, opts)
   end)
 end
 
