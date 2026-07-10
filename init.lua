@@ -141,7 +141,17 @@ function obj:start()
   })
 
   matcher.start(self.config)
-  saveload.start(self.config, grid, overlay, persistence, matcher, modal.getInstance(), workspaces, virtualdisplay)
+  -- The last param records "the workspace/arrangement you're now in" so it can
+  -- be re-loaded on the next start (see config.autoLoadLast and the auto-load
+  -- call at the end of start()). Routed through savedSettings here - rather
+  -- than saveload writing settings.json itself - so this in-memory copy stays
+  -- the single source of truth that every other toggle below also re-saves,
+  -- avoiding a stale-copy write clobbering the lastLoaded pointer (or vice versa).
+  saveload.start(self.config, grid, overlay, persistence, matcher, modal.getInstance(), workspaces, virtualdisplay,
+    function(kind, name)
+      savedSettings.lastLoaded = { kind = kind, name = name }
+      persistence.saveSettings(savedSettings)
+    end)
 
   ignore.start(self.config)
   watcher.start(self.config, ignore, workspaces)
@@ -393,6 +403,18 @@ function obj:start()
   end
 
   menubar.setMenu(buildMenu)
+
+  -- Boot straight into the last workspace/arrangement used (loaded, or saved
+  -- in place) in the previous session, unless disabled via config.autoLoadLast.
+  -- The pointer lives in settings.lastLoaded, kept current by the recordLastUsed
+  -- callback wired into saveload.start above. A nil pointer (fresh install) or
+  -- a since-deleted target is a graceful no-op. Runs last, so every module it
+  -- touches (workspaces, matcher, overlay, virtualdisplay) is already started;
+  -- the app-launch + window-match work it kicks off is async and won't block
+  -- the rest of start() from returning.
+  if self.config.autoLoadLast then
+    saveload.loadLast(savedSettings.lastLoaded)
+  end
 
   return self
 end

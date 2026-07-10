@@ -2,6 +2,16 @@ local M = {}
 
 local deps = nil
 
+-- Routes "this workspace/arrangement is now the one I'm working in" back to
+-- init.lua (via the recordLastUsed dep) so it can be persisted as
+-- settings.lastLoaded and auto-loaded on the next start. Called on every
+-- load, and on the saves that keep you in-place (save workspace / save
+-- arrangement) - deliberately NOT on "save as new", which writes a duplicate
+-- you don't switch to. A no-op if the dep wasn't wired.
+local function recordLastUsed(kind, name)
+  if deps.recordLastUsed then deps.recordLastUsed(kind, name) end
+end
+
 -- The virtualDisplay strategy (if enabled) can make hs.screen.mainScreen()
 -- resolve to the virtual "park" display rather than a real one. Placeholder
 -- canvases must always land on a real screen, so this falls back to the
@@ -141,17 +151,21 @@ local function populateWorkspaceFromSaved(name, onComplete)
   finishIfDone() -- covers the all-empty-slots case, where the loop above never decrements pending
 end
 
-local function loadWorkspaceByName(name)
+-- Public so the auto-load-last-used start path (see M.loadLast / init.lua)
+-- can re-load a single workspace non-interactively, not just via the picker.
+function M.loadWorkspaceByName(name)
   deps.workspaces.hideCurrent()
   hs.alert.show("WM: loading '" .. name .. "'...", 1.5)
   populateWorkspaceFromSaved(name, function(ws)
     if ws then
       deps.workspaces.activate(name)
+      recordLastUsed("workspace", name)
     end
   end)
 end
 
-local function loadArrangementByName(name)
+-- Public for the same reason as M.loadWorkspaceByName above.
+function M.loadArrangementByName(name)
   local data = deps.persistence.loadArrangement(name)
   if not data then
     hs.alert.show("WM: could not load arrangement '" .. name .. "'", 1.5)
@@ -160,6 +174,10 @@ local function loadArrangementByName(name)
 
   deps.workspaces.hideCurrent()
   hs.alert.show("WM: loading arrangement '" .. name .. "'...", 1.5)
+  -- Recorded as soon as we commit to loading it (rather than after the async
+  -- member loads finish): a partially-loaded arrangement is still the one the
+  -- user is in, and is what should come back on the next start.
+  recordLastUsed("arrangement", name)
 
   local pending = #data.workspaces
   if pending == 0 then
@@ -177,6 +195,21 @@ local function loadArrangementByName(name)
         hs.alert.show("WM: arrangement '" .. name .. "' loaded", 1.5)
       end
     end)
+  end
+end
+
+-- Non-interactive re-load of whatever was last loaded/saved, for the "boot
+-- straight into my last layout" start path in init.lua. `last` is the
+-- settings.lastLoaded record ({kind = "workspace"|"arrangement", name = ...})
+-- or nil. A nil/malformed record (fresh install) or a since-deleted target
+-- is a graceful no-op - the underlying load funcs already alert and bail if
+-- the file is gone, so a stale pointer can't error the whole start().
+function M.loadLast(last)
+  if type(last) ~= "table" or not last.name then return end
+  if last.kind == "arrangement" then
+    M.loadArrangementByName(last.name)
+  else
+    M.loadWorkspaceByName(last.name)
   end
 end
 
@@ -212,6 +245,7 @@ function M.promptSaveWorkspace()
   if ok then
     ws:markClean()
     deps.workspaces.refreshStatus()
+    recordLastUsed("workspace", name)
     hs.alert.show("WM: saved '" .. name .. "'", 1.5)
   else
     hs.alert.show("WM: save failed - " .. tostring(err), 2)
@@ -268,6 +302,7 @@ function M.promptSaveArrangement()
     activeWorkspace = cur and cur.name or names[1],
   })
   if ok then
+    recordLastUsed("arrangement", name)
     hs.alert.show("WM: saved arrangement '" .. name .. "'", 1.5)
   else
     hs.alert.show("WM: arrangement save failed - " .. tostring(err), 2)
@@ -344,7 +379,7 @@ function M.promptLoadWorkspace()
   end
   local chooser = hs.chooser.new(function(choice)
     if choice then
-      loadWorkspaceByName(choice.text)
+      M.loadWorkspaceByName(choice.text)
     end
   end)
   chooser:choices(choices)
@@ -363,14 +398,14 @@ function M.promptLoadArrangement()
   end
   local chooser = hs.chooser.new(function(choice)
     if choice then
-      loadArrangementByName(choice.text)
+      M.loadArrangementByName(choice.text)
     end
   end)
   chooser:choices(choices)
   chooser:show()
 end
 
-function M.start(config, gridLib, overlay, persistence, matcher, leaderModal, workspaces, virtualDisplay)
+function M.start(config, gridLib, overlay, persistence, matcher, leaderModal, workspaces, virtualDisplay, recordLastUsedFn)
   deps = {
     gridLib = gridLib,
     overlay = overlay,
@@ -378,6 +413,7 @@ function M.start(config, gridLib, overlay, persistence, matcher, leaderModal, wo
     matcher = matcher,
     workspaces = workspaces,
     virtualDisplay = virtualDisplay,
+    recordLastUsed = recordLastUsedFn,
   }
 
   local saveModal = hs.hotkey.modal.new()

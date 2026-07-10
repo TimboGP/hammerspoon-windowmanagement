@@ -9,6 +9,12 @@ return {
 
   workspaceSlotCount = 9,
 
+  -- On start, automatically re-load whatever workspace or arrangement was
+  -- last loaded or saved in the previous session (tracked as `lastLoaded`
+  -- in settings.json - see saveload.lua / init.lua). Set false to always
+  -- boot into an empty state with nothing active.
+  autoLoadLast = true,
+
   storageDir = home .. "/.hammerspoon/window-mgmt",
   workspacesDir = home .. "/.hammerspoon/window-mgmt/workspaces",
   arrangementsDir = home .. "/.hammerspoon/window-mgmt/arrangements",
