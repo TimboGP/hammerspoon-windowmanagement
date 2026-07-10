@@ -175,13 +175,28 @@ Accessibility).
   same tiling-safe behavior as pressing `j` (returns `true`, or
   `false, "<reason>"` if disabled, no focused window, or AnimFX isn't
   installed).
+- Window slide animation (workspace hide/show): when a workspace is hidden,
+  its windows slide off a screen edge before being tucked away, and drop back
+  in from the same edge when it's shown again. Powered by AnimFX's `slide`
+  effect (same vendored Spoon as wiggle). **Only runs on the experimental
+  virtual-display park path** (see below) — the default minimize path keeps its
+  own Dock genie and is left un-animated, since double-animating a genie looks
+  wrong. Tunable via `config.windowAnim` (`enabled`, `duration`, easing,
+  `direction`) and the menu bar's "Window Animations" submenu. `direction` is
+  the edge a window exits by (`"up"`/`"down"`/`"left"`/`"right"`, default
+  `"up"`); it re-enters from the same edge. Set `followParkingDisplay = true`
+  to instead derive the direction from where the parking display sits in the
+  arrangement (and place that display directly above the main screen so
+  "up/out" points at it).
 - Menu bar: click the menu bar item for a dropdown mirroring the leader
   actions, grouped under headers (Workspaces / Save & Load / Settings) with
   the matching leader-key sequence shown next to each item — switch
   workspace (with a checkmark on the active one), create a new workspace,
   save/load/delete a workspace or arrangement, toggle auto-track for the
-  focused app, toggle the wiggle hotkey on/off, and reload config. Also
-  includes a "WindowMgmt Enabled" checkbox (see "Disabling the tool" below).
+  focused app, toggle the wiggle hotkey on/off, and reload config. A "Window
+  Animations" submenu toggles the hide/show slide, picks its exit direction,
+  and switches on "Follow Parking Display Position". Also includes a
+  "WindowMgmt Enabled" checkbox (see "Disabling the tool" below).
 
 ## Disabling the tool
 
@@ -310,6 +325,13 @@ Known caveats:
 - If the `vdisplay-helper` daemon isn't installed/reachable, this Spoon
   degrades gracefully to the normal minimize-based behavior (with a one-time
   alert), never errors.
+- The **window slide animation** (see "Usage" above) only plays on this park
+  path — a window slides off a screen edge, *then* teleports to the parking
+  display. The parking display is headless (rendered on no physical monitor),
+  so the slide is a cosmetic motion on the real screen that ends in an instant
+  teleport; you never literally watch a window arrive on the parking display,
+  even with `followParkingDisplay` placing it directly above. Without the
+  virtual display in use, hides fall back to minimize with no slide.
 - Press `r` (leader modal) or use the menu bar's "Bring Back Parked Windows"
   to recover any parked windows across *every* workspace (not just the
   active one) — useful after the daemon restarts or the display is removed

@@ -30,6 +30,29 @@ return {
   -- in seconds.
   wiggle = { enabled = true, axis = "x", amplitude = 18, frequency = 6, duration = 0.45 },
 
+  -- Tunables for the workspace hide/show slide animation (see windowanim.lua
+  -- and the vendored AnimFX Spoon's `slide` effect). Deliberately runs ONLY on
+  -- the virtual-display *park* path: the minimize fallback keeps its own Dock
+  -- genie and gets no slide (double-animating a genie looks wrong). All of
+  -- these are also toggled live from the menu bar "Window Animations" submenu.
+  --   enabled     - master on/off for the slide.
+  --   duration    - seconds per slide.
+  --   easingOut/In- AnimFX easing names for hide (out) and show (in).
+  --   direction   - the screen edge a window exits by on hide ("up"|"down"|
+  --                 "left"|"right"); it re-enters from the same edge on show.
+  --   followParkingDisplay - ignore `direction` and instead derive it from
+  --                 where the parking display sits in the arrangement (and
+  --                 place that display directly above the main screen so
+  --                 "up/out" points at it). Only meaningful with virtualDisplay.
+  windowAnim = {
+    enabled = true,
+    duration = 0.28,
+    easingOut = "inCubic",
+    easingIn = "outCubic",
+    direction = "up",
+    followParkingDisplay = false,
+  },
+
   matchTimeout = 8,
   matchPollInterval = 0.25,
 

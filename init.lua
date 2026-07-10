@@ -37,6 +37,7 @@ local windowlist = dofile(obj.spoonPath .. "windowlist.lua")
 local virtualdisplay = dofile(obj.spoonPath .. "virtualdisplay.lua")
 local pause = dofile(obj.spoonPath .. "pause.lua")
 local wiggle = dofile(obj.spoonPath .. "wiggle.lua")
+local windowanim = dofile(obj.spoonPath .. "windowanim.lua")
 
 -- Vendored as a git submodule (vendor/AnimFX.spoon) rather than a second
 -- hs.loadSpoon in the user's own init.lua, to keep this Spoon's "one clone"
@@ -83,6 +84,15 @@ function obj:start()
   if savedSettings.wiggleEnabled ~= nil then
     self.config.wiggle.enabled = savedSettings.wiggleEnabled
   end
+  if savedSettings.windowAnimEnabled ~= nil then
+    self.config.windowAnim.enabled = savedSettings.windowAnimEnabled
+  end
+  if savedSettings.windowAnimDirection ~= nil then
+    self.config.windowAnim.direction = savedSettings.windowAnimDirection
+  end
+  if savedSettings.windowAnimFollowParking ~= nil then
+    self.config.windowAnim.followParkingDisplay = savedSettings.windowAnimFollowParking
+  end
 
   -- Shared by the escape hatch (recovering a stuck modal) and pause.lua
   -- (leaving everything in a clean, neutral state when disabled).
@@ -94,6 +104,7 @@ function obj:start()
     focus.forceExit()
     windowlist.forceExit()
     wiggle.forceExit()
+    windowanim.forceExit()
   end
 
   modal.start(self.config, {
@@ -104,7 +115,7 @@ function obj:start()
   tiling.start(self.config, grid, modal.getInstance(), workspaces)
 
   virtualdisplay.start(self.config)
-  workspaces.start(self.config, Workspace, overlay, grid, menubar, virtualdisplay, pause)
+  workspaces.start(self.config, Workspace, overlay, grid, menubar, virtualdisplay, windowanim, pause)
   membership.start(self.config, modal.getInstance(), workspaces)
   switching.start(self.config, modal.getInstance(), workspaces)
   swap.start(overlay, modal.getInstance(), workspaces)
@@ -145,6 +156,18 @@ function obj:start()
     AnimFX:start()
   end
   wiggle.start(self.config, AnimFX, modal.getInstance(), workspaces)
+  windowanim.start(self.config, AnimFX)
+
+  -- When the slide animation is set to follow the parking display, place that
+  -- (headless) display directly above the main screen so "up/out" physically
+  -- points at where windows are parked (see windowanim.lua). Best-effort and
+  -- only meaningful with the virtualDisplay strategy on; a no-op otherwise, so
+  -- it's safe to call from every ensureDisplay success path below.
+  local function applyParkingArrangement()
+    if self.config.windowAnim.followParkingDisplay and self.config.virtualDisplay.enabled then
+      virtualdisplay.positionAboveMain()
+    end
+  end
 
   -- Explicit recovery for the experimental virtualDisplay hide strategy:
   -- brings back any parked windows across every workspace (not just the
@@ -158,6 +181,7 @@ function obj:start()
   if self.config.virtualDisplay.enabled then
     virtualdisplay.ensureDisplay(function(screen, err)
       if screen then
+        applyParkingArrangement()
         print("WindowMgmt: virtual display ready (" .. tostring(screen:name()) .. ")")
       else
         print("WindowMgmt: virtual display unavailable (" .. tostring(err) .. "); hide/show will use minimize")
@@ -181,6 +205,7 @@ function obj:start()
       hs.alert.show("WM: virtual-display hide/show enabled", 1.5)
       virtualdisplay.ensureDisplay(function(screen, err)
         if screen then
+          applyParkingArrangement()
           print("WindowMgmt: virtual display ready (" .. tostring(screen:name()) .. ")")
         else
           hs.alert.show("WM: vdisplay-helper unavailable (" .. tostring(err) .. "); falling back to minimize", 3)
@@ -206,6 +231,44 @@ function obj:start()
     savedSettings.wiggleEnabled = wg.enabled
     persistence.saveSettings(savedSettings)
     hs.alert.show(wg.enabled and "WM: wiggle enabled" or "WM: wiggle disabled", 1.5)
+  end
+
+  -- The slide-animation toggles. config.windowAnim is the same table reference
+  -- windowanim.lua captured at start(), so mutating it here takes effect
+  -- immediately for the next hide/show (same live-mutation pattern as
+  -- toggleWiggle / toggleVirtualDisplay above).
+  local function persistWindowAnim()
+    local wa = self.config.windowAnim
+    savedSettings.windowAnimEnabled = wa.enabled
+    savedSettings.windowAnimDirection = wa.direction
+    savedSettings.windowAnimFollowParking = wa.followParkingDisplay
+    persistence.saveSettings(savedSettings)
+  end
+
+  local function toggleWindowAnim()
+    local wa = self.config.windowAnim
+    wa.enabled = not wa.enabled
+    persistWindowAnim()
+    hs.alert.show(wa.enabled and "WM: window slide animation enabled"
+      or "WM: window slide animation disabled", 1.5)
+  end
+
+  local function setAnimDirection(dir)
+    self.config.windowAnim.direction = dir
+    persistWindowAnim()
+    hs.alert.show("WM: slide exits '" .. dir .. "'", 1.2)
+  end
+
+  local function toggleFollowParking()
+    local wa = self.config.windowAnim
+    wa.followParkingDisplay = not wa.followParkingDisplay
+    persistWindowAnim()
+    if wa.followParkingDisplay then
+      applyParkingArrangement()
+      hs.alert.show("WM: slide follows parking display position", 1.5)
+    else
+      hs.alert.show("WM: slide uses fixed direction '" .. (wa.direction or "up") .. "'", 1.5)
+    end
   end
 
   -- Section headers are plain disabled items (no native "menu section" concept
@@ -284,6 +347,37 @@ function obj:start()
       checked = self.config.wiggle.enabled,
       fn = toggleWiggle,
     }))
+
+    -- Window Animations submenu: the slide runs only on the virtual-display
+    -- park path (the minimize fallback is deliberately un-animated). Direction
+    -- items are the exit edge on hide; a window re-enters from the same edge on
+    -- show. They're disabled while "Follow Parking Display" owns the direction.
+    local wa = self.config.windowAnim
+    local function dirItem(label, dir)
+      return {
+        title = label,
+        checked = (wa.direction or "up") == dir,
+        disabled = wa.followParkingDisplay == true,
+        fn = function() setAnimDirection(dir) end,
+      }
+    end
+    local windowAnimMenu = {
+      { title = "Enable Slide In/Out (park only)", checked = wa.enabled ~= false, fn = toggleWindowAnim },
+      { title = "-" },
+      { title = "Exit direction", disabled = true },
+      dirItem("Up", "up"),
+      dirItem("Down", "down"),
+      dirItem("Left", "left"),
+      dirItem("Right", "right"),
+      { title = "-" },
+      {
+        title = "Follow Parking Display Position",
+        checked = wa.followParkingDisplay == true,
+        fn = toggleFollowParking,
+      },
+    }
+    table.insert(items, item("Window Animations", nil, { menu = windowAnimMenu }))
+
     table.insert(items, item("Use Virtual Display for Hide/Show", nil, {
       checked = self.config.virtualDisplay.enabled,
       fn = toggleVirtualDisplay,

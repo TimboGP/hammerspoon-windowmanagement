@@ -148,6 +148,27 @@ function M.parkWindow(window)
   return true
 end
 
+-- Best-effort: repositions the parking display so its bottom edge sits flush
+-- above the primary screen's top edge (centred horizontally), making an
+-- "up and out" hide animation physically coherent with where windows land.
+-- Called by init.lua only when the animation is set to follow the parking
+-- display (see windowanim.lua's resolveDirection). No-op returning false if
+-- the display isn't currently resolvable; pcall'd because setOrigin can reject
+-- an origin the window server won't accept. Tries both known setOrigin call
+-- forms (two numbers, or a {x,y} table) across Hammerspoon versions.
+function M.positionAboveMain()
+  local screen = M.getScreen()
+  if not screen then return false end
+  local main = hs.screen.primaryScreen()
+  if not main or main == screen then return false end
+  local mf = main:fullFrame()
+  local pf = screen:fullFrame()
+  local x = mf.x + (mf.w - pf.w) / 2
+  local y = mf.y - pf.h
+  if pcall(function() screen:setOrigin(x, y) end) then return true end
+  return pcall(function() screen:setOrigin({ x = x, y = y }) end)
+end
+
 -- Falls back to asking the daemon via `list` when there's no cached
 -- displayID, so this still works for a display this session never created
 -- itself (e.g. discovered by the stop-time orphan check after a reload).

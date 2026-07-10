@@ -7,6 +7,7 @@ local gridConfig = nil
 local menubar = nil
 local hideConfig = nil
 local virtualDisplay = nil
+local windowanim = nil
 local pause = nil
 
 local all = {}       -- name -> Workspace instance
@@ -20,7 +21,7 @@ local rescreenTimer = nil
 -- triggers one re-fit instead of several redundant ones.
 local RESCREEN_DEBOUNCE = 1.0
 
-function M.start(config, workspaceClass, overlayModule, grid, menubarModule, virtualDisplayModule, pauseModule)
+function M.start(config, workspaceClass, overlayModule, grid, menubarModule, virtualDisplayModule, windowanimModule, pauseModule)
   Workspace = workspaceClass
   overlay = overlayModule
   gridLib = grid
@@ -28,6 +29,7 @@ function M.start(config, workspaceClass, overlayModule, grid, menubarModule, vir
   menubar = menubarModule
   hideConfig = config.virtualDisplay
   virtualDisplay = virtualDisplayModule
+  windowanim = windowanimModule
   pause = pauseModule
 
   -- Zones are grid-relative fractions of a screen, not absolute pixels, so
@@ -71,7 +73,7 @@ local function onWorkspaceDirtyChange()
 end
 
 local function create(name)
-  local ws = Workspace.new(name, overlay, gridLib, gridConfig, hideConfig, virtualDisplay, onWorkspaceDirtyChange)
+  local ws = Workspace.new(name, overlay, gridLib, gridConfig, hideConfig, virtualDisplay, windowanim, onWorkspaceDirtyChange)
   all[name] = ws
   return ws
 end

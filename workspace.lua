@@ -1,7 +1,7 @@
 local M = {}
 M.__index = M
 
-function M.new(name, overlay, gridLib, gridConfig, hideConfig, virtualDisplay, onDirtyChange)
+function M.new(name, overlay, gridLib, gridConfig, hideConfig, virtualDisplay, windowanim, onDirtyChange)
   return setmetatable({
     name = name,
     overlay = overlay,
@@ -9,15 +9,18 @@ function M.new(name, overlay, gridLib, gridConfig, hideConfig, virtualDisplay, o
     gridConfig = gridConfig,
     hideConfig = hideConfig,         -- config.virtualDisplay table, or nil
     virtualDisplay = virtualDisplay, -- virtualdisplay module, or nil
+    windowanim = windowanim,         -- windowanim module, or nil
     onDirtyChange = onDirtyChange,   -- called whenever self.dirty flips, or nil
     -- slots: ordered list of { window = hs.window|nil, zone = {x0,y0,x1,y1},
-    -- realScreen = hs.screen|nil, resettleWatcher = hs.uielement.watcher|nil }
+    -- realScreen = hs.screen|nil, resettleWatcher = hs.uielement.watcher|nil,
+    -- animHandle = AnimFX slide handle|nil }
     -- - realScreen is only set while a window is parked on the virtual
     -- display, so it can be moved back on show(); resettleWatcher is set
     -- for as long as the workspace is shown, fighting any drift away from
     -- slot.zone (see snapAndWatch below) - retile() below is how a
     -- deliberate zone change (tiling, swap) updates what it defends instead
-    -- of being fought by it.
+    -- of being fought by it; animHandle is the in-flight hide/show slide (see
+    -- cancelSlotAnim), so a rapid re-switch can interrupt it cleanly.
     slots = {},
     lastFocusedWindow = nil,
     dirty = false,
@@ -77,6 +80,24 @@ local function stopResettleWatch(slot)
   if slot.resettleWatcher then
     slot.resettleWatcher:stop()
     slot.resettleWatcher = nil
+  end
+end
+
+local function isAlive(win)
+  local ok, visible = pcall(function() return win:isVisible() ~= nil end)
+  return ok and visible
+end
+
+-- Cancels an in-flight hide/show slide for this slot, if any. Clears
+-- slot.animHandle *before* cancelling so the slide's onComplete (which fires
+-- synchronously with cancelled=true and would otherwise re-enter this) sees a
+-- clean slot. Callers start a fresh slide only after this returns, so the new
+-- handle can't be clobbered by the cancelled one's teardown.
+local function cancelSlotAnim(slot)
+  local handle = slot.animHandle
+  if handle then
+    slot.animHandle = nil
+    pcall(handle.cancel)
   end
 end
 
@@ -276,12 +297,26 @@ function M:hide()
 
   for i, slot in ipairs(self.slots) do
     if slot.window then
+      local win = slot.window
       stopResettleWatch(slot)
+      cancelSlotAnim(slot) -- interrupt any in-flight show-slide before hiding
       if vdScreen then
-        slot.realScreen = slot.window:screen()
-        self.virtualDisplay.parkWindow(slot.window)
+        slot.realScreen = win:screen()
+        -- Slide out first, then park in the completion callback. A cancelled
+        -- slide (rapid re-show) must NOT park - show() wants the window kept
+        -- on its real screen. If the slide can't run (disabled/unreadable),
+        -- slideOut returns nil and we park immediately, the original behavior.
+        slot.animHandle = self.windowanim and self.windowanim.slideOut(
+          win, slot.realScreen, vdScreen, function(cancelled)
+            slot.animHandle = nil
+            if cancelled or not isAlive(win) then return end
+            self.virtualDisplay.parkWindow(win)
+          end)
+        if not slot.animHandle then
+          self.virtualDisplay.parkWindow(win)
+        end
       else
-        slot.window:minimize()
+        win:minimize() -- minimize fallback is deliberately un-animated
       end
     end
     self.overlay.hideBadge(slotId(self, i))
@@ -316,20 +351,45 @@ function M:show()
     if slot.window then
       local win = slot.window
       local zone = slot.zone
+      cancelSlotAnim(slot) -- interrupt any in-flight hide-slide before showing
+      local badgeScreen = win:screen()
       if win:isMinimized() then
+        -- Minimize fallback path: un-animated on the way in too (matches
+        -- hide()); the Dock genie plays and we snap once it settles.
         win:unminimize()
         hs.timer.doAfter(UNMINIMIZE_ANIMATION_DELAY, function()
           if not win:isMinimized() then
             snapAndWatch(self.gridLib, slot, win, self.gridConfig, zone)
           end
         end)
-      else
-        if slot.realScreen then
-          restoreSlotFromPark(self, slot)
+      elseif slot.realScreen then
+        -- Was parked: bring it back onto its real screen, then slide it in
+        -- from the same edge it left by. The slide's onComplete does the
+        -- authoritative zone snap and re-arms the resettle watcher; a plain
+        -- snap is the fallback when the slide is off/unavailable, or if it's
+        -- cancelled by a rapid re-hide (in which case hide() takes over).
+        restoreSlotFromPark(self, slot)
+        local targetScreen = win:screen()
+        badgeScreen = targetScreen or badgeScreen
+        local parkScreen = self.virtualDisplay and self.virtualDisplay.getScreen() or nil
+        local targetFrame = targetScreen
+            and self.gridLib.zoneToFrame(targetScreen:frame(), self.gridConfig, zone) or nil
+        if targetScreen and targetFrame and self.windowanim then
+          slot.animHandle = self.windowanim.slideIn(
+            win, targetScreen, targetFrame, parkScreen, function(cancelled)
+              slot.animHandle = nil
+              if cancelled then return end
+              snapAndWatch(self.gridLib, slot, win, self.gridConfig, zone)
+            end)
         end
+        if not slot.animHandle then
+          snapAndWatch(self.gridLib, slot, win, self.gridConfig, zone)
+        end
+      else
+        -- Never actually left the screen: just re-snap, no slide.
         snapAndWatch(self.gridLib, slot, win, self.gridConfig, zone)
       end
-      self.overlay.showBadge(slotId(self, i), win:screen(), zone, self.name)
+      self.overlay.showBadge(slotId(self, i), badgeScreen, zone, self.name)
     end
   end
 
@@ -368,6 +428,7 @@ end
 function M:stopAllWatches()
   for _, slot in ipairs(self.slots) do
     stopResettleWatch(slot)
+    cancelSlotAnim(slot)
   end
 end
 
@@ -379,6 +440,7 @@ end
 function M:restoreParkedWindows()
   for _, slot in ipairs(self.slots) do
     if slot.window and slot.realScreen then
+      cancelSlotAnim(slot) -- a park-slide may still be mid-flight; stop it first
       restoreSlotFromPark(self, slot)
       self.gridLib.snapWindowToZone(slot.window, self.gridConfig, slot.zone)
     end
