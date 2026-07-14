@@ -332,7 +332,14 @@ local function restoreSlotFromPark(self, slot)
   local stillOnVirtual = self.virtualDisplay and self.virtualDisplay.hasCachedDisplay()
       and slot.window:screen() == self.virtualDisplay.getScreen()
   if stillOnVirtual then
-    slot.window:moveToScreen(slot.realScreen, false, false, 0)
+    -- noResize=true: slideIn (or the plain-snap fallback) is about to force
+    -- this window's frame to targetFrame anyway, so a proportional resize
+    -- here is redundant - and since it happens synchronously right as the
+    -- window reappears on the real screen (before slideIn's off-screen
+    -- pre-position hides any size change), it's the one part of this whole
+    -- un-park path that's actually visible: a sudden snap-resize the instant
+    -- before the animated slide starts.
+    slot.window:moveToScreen(slot.realScreen, true, false, 0)
   end
   -- Otherwise the virtual display (or the window's presence on it) is gone;
   -- leave the window wherever macOS already relocated it and let the
