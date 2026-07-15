@@ -4,7 +4,7 @@ local item = nil
 
 function M.start(config)
   item = hs.menubar.new()
-  M.setStatus("no workspace")
+  M.setStatus("Playground") -- overwritten the instant workspaces.start() activates the default workspace
   return item
 end
 

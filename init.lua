@@ -126,11 +126,16 @@ function obj:start()
 
   -- Global on/off switch, independent of the leader modal (see pause.lua) -
   -- disabling force-resets any stuck sub-modal, stops auto-tracking new
-  -- windows, and stops the current workspace's resettle watchers so it
-  -- immediately stops fighting anyone moving windows around; re-enabling
-  -- only restarts auto-tracking; watchers re-arm naturally the next time
-  -- something actually re-tiles or switches workspace, rather than
-  -- retroactively snapping everything back the instant it's re-enabled.
+  -- windows, stops the current workspace's resettle watchers so it
+  -- immediately stops fighting anyone moving windows around, and now also
+  -- brings back every parked window across every workspace: with the
+  -- default "Playground" workspace always current (see workspaces.lua),
+  -- disabling this tool is the one genuinely "unmanaged" state left, so it
+  -- shouldn't leave anything sitting hidden on the parking display while
+  -- it's off. Re-enabling only restarts auto-tracking; watchers re-arm
+  -- naturally the next time something actually re-tiles or switches
+  -- workspace, rather than retroactively snapping everything back the
+  -- instant it's re-enabled.
   pause.start(self.config, {
     onDisabled = function()
       modal.getInstance():exit()
@@ -138,6 +143,7 @@ function obj:start()
       watcher.stop()
       local cur = workspaces.current()
       if cur then cur:stopAllWatches() end
+      workspaces.restoreAllParked()
     end,
     onEnabled = function()
       watcher.refresh()

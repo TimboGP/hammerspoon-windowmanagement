@@ -15,6 +15,21 @@ local all = {}       -- name -> Workspace instance
 local slotNames = {} -- 1..9 -> name
 local currentName = nil
 
+-- The default landing workspace - a normal, fully-tiling/focus-capable
+-- workspace like any other, just always present and current unless
+-- something else (a restored arrangement/workspace, or an explicit switch)
+-- takes over. Replaces the old implicit "no workspace" state: previously a
+-- nil currentName meant new/auto-tracked windows silently went nowhere
+-- (watcher.lua's windowCreated handler no-ops without a current workspace).
+-- Genuinely unmanaged now means pause.lua's disable, not "no workspace".
+M.DEFAULT_WORKSPACE = "Playground"
+
+-- Forward-declared: assigned below (after onWorkspaceDirtyChange exists to
+-- close over), but referenced from M.start, which is defined first in the
+-- file so its default-workspace bootstrap reads top-to-bottom with the rest
+-- of start-up.
+local create
+
 local screenWatcher = nil
 local rescreenTimer = nil
 -- Debounced so a single physical connect/disconnect (which macOS reports as
@@ -52,6 +67,17 @@ function M.start(config, workspaceClass, overlayModule, grid, menubarModule, vir
     end)
   end)
   screenWatcher:start()
+
+  -- Boots straight into the default workspace so there's never a gap where
+  -- currentName is nil - init.lua's auto-load-last (if enabled) runs after
+  -- M.start() returns and will hideCurrent()/activate() over this the moment
+  -- it has something to switch to, exactly like switching away from any
+  -- other workspace.
+  if not all[M.DEFAULT_WORKSPACE] then
+    create(M.DEFAULT_WORKSPACE)
+  end
+  slotNames[1] = slotNames[1] or M.DEFAULT_WORKSPACE
+  M.activate(M.DEFAULT_WORKSPACE)
 end
 
 function M.stop()
@@ -74,7 +100,7 @@ local function onWorkspaceDirtyChange()
   M.refreshStatus()
 end
 
-local function create(name)
+create = function(name)
   local ws = Workspace.new(name, overlay, gridLib, gridConfig, hideConfig, virtualDisplay, windowanim, onWorkspaceDirtyChange)
   all[name] = ws
   return ws
