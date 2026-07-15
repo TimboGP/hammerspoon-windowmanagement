@@ -88,6 +88,22 @@ local function resolveScreenByID(displayID)
   return nil
 end
 
+-- The daemon always names the display it creates "park" (see the `create`
+-- call below), and that name survives a daemon restart even though the
+-- displayID doesn't - the daemon is launchd-supervised and independent of
+-- this Spoon's lifecycle, so it can crash/restart and hand out a new ID for
+-- what is, from the user's perspective, the same parking display. Used as a
+-- fallback so a stale cached ID doesn't strand windows already sitting on
+-- the new display (see M.getScreen()).
+local function resolveScreenByName(name)
+  for _, screen in ipairs(hs.screen.allScreens()) do
+    if screen:name() == name then
+      return screen
+    end
+  end
+  return nil
+end
+
 -- Idempotent from the caller's perspective too: if a display is already
 -- cached and still resolvable, returns it immediately without a round-trip.
 function M.ensureDisplay(callback)
@@ -128,11 +144,23 @@ end
 
 -- Synchronous accessor for hide()/show(), which must stay synchronous - also
 -- re-validates the cache so an externally-destroyed display (daemon killed,
--- display removed) is noticed rather than handed out stale.
+-- display removed) is noticed rather than handed out stale. Falls back to
+-- resolving by name ("park") before giving up entirely, since a daemon
+-- restart hands out a new displayID for what is otherwise the same parking
+-- display - without this, windows already sitting on the new display would
+-- be reported as unparked (see WISHLIST.md/git history for the stranded-
+-- window bug this was chasing).
 function M.getScreen()
   if screenCache and not resolveScreenByID(activeDisplayID) then
     screenCache = nil
     activeDisplayID = nil
+  end
+  if not screenCache then
+    local byName = resolveScreenByName("park")
+    if byName then
+      screenCache = byName
+      activeDisplayID = byName:id()
+    end
   end
   return screenCache
 end
