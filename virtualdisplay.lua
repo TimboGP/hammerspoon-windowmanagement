@@ -11,6 +11,14 @@ local availability = nil -- nil = not yet checked this session; true/false after
 local screenCache = nil
 local activeDisplayID = nil
 local warnedOnce = false
+local changeWatcher = nil
+
+-- Matches the name the daemon posts to (see vdisplay-helper's main.swift) -
+-- a crash/restart there hands out a new displayID for what is otherwise the
+-- same "park" display, and this is how the daemon tells this client without
+-- waiting for it to notice on its own next lazy lookup (M.getScreen()'s
+-- resolve-by-name fallback).
+local DISPLAY_CHANGED_NOTIFICATION = "com.timbogp.vdisplay-helper.displayChanged"
 
 local function warnOnce(message)
   if warnedOnce then return end
@@ -57,8 +65,19 @@ local function sendCommand(cmd, callback)
   end
 end
 
+-- Forward-declared: assigned below once resolveScreenByID exists, but
+-- referenced here since M.start (which wires up the subscription) is
+-- defined first in the file.
+local handleDisplayChanged
+
 function M.start(cfg)
   config = cfg.virtualDisplay
+  if not changeWatcher then
+    changeWatcher = hs.distributednotifications.new(function(name, obj, userInfo)
+      handleDisplayChanged(userInfo)
+    end, DISPLAY_CHANGED_NOTIFICATION)
+    changeWatcher:start()
+  end
 end
 
 -- Cached per session (re-checked only via M.reset()) since a ping round-trip
@@ -102,6 +121,28 @@ local function resolveScreenByName(name)
     end
   end
   return nil
+end
+
+-- Reacts to the daemon's push notification (see vdisplay-helper's main.swift)
+-- instead of waiting for the next lazy getScreen() lookup - lets a freshly
+-- created display be adopted (and positionAboveMain re-applied by init.lua's
+-- ensureDisplay callers) right away rather than only on the next hide/show.
+-- A "destroyed" event only clears the cache when it matches what's cached,
+-- since a stale destroy for an ID we've already moved on from shouldn't wipe
+-- a newer one out from under us.
+handleDisplayChanged = function(userInfo)
+  local event = userInfo and userInfo.event
+  local displayID = userInfo and userInfo.displayID
+  if event == "created" and displayID then
+    local screen = resolveScreenByID(displayID)
+    if screen then
+      screenCache = screen
+      activeDisplayID = displayID
+    end
+  elseif event == "destroyed" and displayID and displayID == activeDisplayID then
+    screenCache = nil
+    activeDisplayID = nil
+  end
 end
 
 -- Idempotent from the caller's perspective too: if a display is already
@@ -249,6 +290,10 @@ end
 -- user-driven cleanup path.
 function M.stop()
   M.reset()
+  if changeWatcher then
+    changeWatcher:stop()
+    changeWatcher = nil
+  end
 end
 
 return M
