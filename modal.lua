@@ -15,7 +15,7 @@ function M.start(config, callbacks)
   local cheatSheet = table.concat({
     "WM leader engaged",
     "t tile | g add/remove | 1-9/p/n workspace | x swap",
-    "s save/load/delete | i autotrack | v reveal | f/c focus | w windows | u untracked | j wiggle",
+    "s save/load/delete | i autotrack | v reveal | f/c focus | w windows | tab cycle | u untracked | j wiggle",
     config.virtualDisplay and config.virtualDisplay.enabled
         and "r restore parked | esc cancel"
         or "esc cancel",

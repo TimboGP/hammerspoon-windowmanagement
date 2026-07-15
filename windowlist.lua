@@ -1,5 +1,10 @@
 local M = {}
 
+-- The chooser currently on screen, if any - kept so forceExit/stop can hide
+-- it without needing a full hs.hotkey.modal (the chooser is already modal:
+-- it captures keystrokes and Escape cancels it on its own).
+local activeChooser = nil
+
 local function windowEntries(ws)
   local entries = {}
   for i, slot in ipairs(ws.slots) do
@@ -16,92 +21,64 @@ local function windowEntries(ws)
   return entries
 end
 
--- Shows a chooser over the given workspace's member windows and invokes
--- onPick with the chosen hs.window. No-ops with an alert if the workspace
--- has nothing in it, rather than showing an empty chooser.
-local function pickWindow(ws, placeholderText, onPick)
+-- The base view: immediately shows every window in the workspace. Enter
+-- focuses the highlighted window; the modifier held at selection time picks
+-- a different action instead (there's no per-row hotkey support in
+-- hs.chooser, so this is the standard Hammerspoon way to get more than one
+-- action out of a single chooser).
+local function showWindowChooser(ws, workspaces, focus)
   local entries = windowEntries(ws)
   if #entries == 0 then
     hs.alert.show("WM: workspace '" .. ws.name .. "' has no windows", 1.5)
     return
   end
+
+  hs.alert.show(
+    "Workspace windows: \u{21b5} focus, \u{2318}\u{21b5} remove, \u{2325}\u{21b5} pull out/center, esc cancel",
+    3)
+
   local chooser = hs.chooser.new(function(choice)
-    if choice then
-      onPick(choice.window)
+    activeChooser = nil
+    if not choice then return end
+    local mods = hs.eventtap.checkKeyboardModifiers()
+    if mods.cmd then
+      ws:removeWindow(choice.window)
+      choice.window:minimize()
+      hs.alert.show("WM: removed from workspace '" .. ws.name .. "'", 1)
+    elseif mods.alt then
+      focus.pullOutAndCenter(workspaces, choice.window)
+    else
+      choice.window:focus()
     end
   end)
-  chooser:placeholderText(placeholderText)
+  chooser:placeholderText("Workspace windows")
   chooser:choices(entries)
+  activeChooser = chooser
   chooser:show()
 end
 
 function M.start(config, leaderModal, workspaces, focus)
-  local windowListModal = hs.hotkey.modal.new()
-
-  function windowListModal:entered()
-    hs.alert.show("Workspace windows: f focus, c pull out/center, r remove, esc cancel", 2.5)
-  end
-
-  local function withCurrentWorkspace(fn)
+  leaderModal:bind({}, "w", nil, function()
+    leaderModal:exit()
     local ws = workspaces.current()
     if not ws then
       hs.alert.show("WM: no active workspace", 1)
       return
     end
-    fn(ws)
-  end
-
-  windowListModal:bind({}, "f", nil, function()
-    windowListModal:exit()
-    withCurrentWorkspace(function(ws)
-      pickWindow(ws, "Focus which window?", function(win)
-        win:focus()
-      end)
-    end)
+    showWindowChooser(ws, workspaces, focus)
   end)
-
-  windowListModal:bind({}, "c", nil, function()
-    windowListModal:exit()
-    withCurrentWorkspace(function(ws)
-      pickWindow(ws, "Pull out & center which window?", function(win)
-        focus.pullOutAndCenter(workspaces, win)
-      end)
-    end)
-  end)
-
-  windowListModal:bind({}, "r", nil, function()
-    windowListModal:exit()
-    withCurrentWorkspace(function(ws)
-      pickWindow(ws, "Remove which window from workspace?", function(win)
-        ws:removeWindow(win)
-        win:minimize()
-        hs.alert.show("WM: removed from workspace '" .. ws.name .. "'", 1)
-      end)
-    end)
-  end)
-
-  windowListModal:bind({}, "escape", nil, function() windowListModal:exit() end)
-
-  leaderModal:bind({}, "w", nil, function()
-    leaderModal:exit()
-    windowListModal:enter()
-  end)
-
-  M.windowListModal = windowListModal
-  return M
 end
 
--- Used by the global escape hatch to recover if this sub-modal gets stuck.
+-- Used by the global escape hatch to recover if the chooser gets stuck.
 function M.forceExit()
-  if M.windowListModal then M.windowListModal:exit() end
+  if activeChooser then
+    activeChooser:hide()
+    activeChooser = nil
+  end
 end
 
 function M.stop()
-  if M.windowListModal then
-    M.windowListModal:exit()
-    M.windowListModal:delete()
-    M.windowListModal = nil
-  end
+  M.forceExit()
 end
 
 return M

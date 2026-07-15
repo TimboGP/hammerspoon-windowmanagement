@@ -154,11 +154,17 @@ Accessibility).
   original slot (not just any empty slot). Only one window can be in focus
   mode at a time; entering focus mode on a different window first restores
   whatever was already focused.
-- Window list (`w` from the leader modal): lists every window in the active
-  workspace in a chooser, then `f`/`c`/`r` pick one to focus, pull out to
-  focus mode (`c`), or remove from the workspace — same underlying actions
+- Window list (`w` from the leader modal): immediately shows every window in
+  the active workspace in a chooser. Enter focuses the highlighted window;
+  holding ⌘ or ⌥ while pressing Enter instead removes it from the workspace
+  or pulls it out to focus mode (`c`), respectively — same underlying actions
   as focusing a window directly and pressing `f`/`c`/`g` `r`, just reachable
   without hunting for the window on screen first.
+- Tab cycling (`tab` from the leader modal): cmd-tab-style cycling through
+  every window in the active workspace, in the same stable slot order as the
+  window list above. Each `tab` press immediately focuses the next window;
+  `shift` `tab` goes to the previous one. Keep pressing `tab`/`shift` `tab`
+  to keep cycling — `esc` (or the leader idle timeout) stops.
 - Wiggle (`j` from the leader modal): shakes the focused window — a
   horizontal, decaying sinusoidal oscillation lasting under half a second —
   then returns it to exactly where it was. Works even on a tiled workspace
@@ -360,7 +366,8 @@ memorize it up front.
 | `i` | Toggle auto-track for the focused window's app |
 | `v` | Reveal: flash borders of every window in the active workspace |
 | `f`/`c` | Toggle fullscreen/centered focus mode for the focused window |
-| `w` → `f`/`c`/`r` | List active workspace's windows, then focus/pull-out-center/remove the picked one |
+| `w` | List active workspace's windows; `enter`/`⌘enter`/`⌥enter` focuses/removes/pulls-out-center the picked one |
+| `tab`/`shift+tab` | Cycle focus forward/backward through the active workspace's windows |
 | `j` | Wiggle the focused window (works even while tiled) |
 | `r` | Bring back any parked windows (experimental virtualDisplay strategy only) |
 | `esc` (in any sub-mode) | Cancel back out |
