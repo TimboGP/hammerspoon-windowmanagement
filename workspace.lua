@@ -151,6 +151,16 @@ function M:hasWindow(window)
   return false
 end
 
+-- All non-empty slot windows, in slot order - used by workspaces.lua to
+-- wiggle a just-activated workspace's windows as a switch cue.
+function M:windows()
+  local wins = {}
+  for _, slot in ipairs(self.slots) do
+    if slot.window then table.insert(wins, slot.window) end
+  end
+  return wins
+end
+
 -- Prefers filling an existing empty slot (snapping the window into that
 -- slot's zone) so a previously vacated spot can be refilled with a
 -- different window. Only creates a new slot, registered at the window's

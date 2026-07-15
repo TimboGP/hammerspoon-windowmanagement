@@ -9,6 +9,7 @@ local hideConfig = nil
 local virtualDisplay = nil
 local windowanim = nil
 local pause = nil
+local wiggle = nil
 
 local all = {}       -- name -> Workspace instance
 local slotNames = {} -- 1..9 -> name
@@ -21,7 +22,7 @@ local rescreenTimer = nil
 -- triggers one re-fit instead of several redundant ones.
 local RESCREEN_DEBOUNCE = 1.0
 
-function M.start(config, workspaceClass, overlayModule, grid, menubarModule, virtualDisplayModule, windowanimModule, pauseModule)
+function M.start(config, workspaceClass, overlayModule, grid, menubarModule, virtualDisplayModule, windowanimModule, pauseModule, wiggleModule)
   Workspace = workspaceClass
   overlay = overlayModule
   gridLib = grid
@@ -31,6 +32,7 @@ function M.start(config, workspaceClass, overlayModule, grid, menubarModule, vir
   virtualDisplay = virtualDisplayModule
   windowanim = windowanimModule
   pause = pauseModule
+  wiggle = wiggleModule
 
   -- Zones are grid-relative fractions of a screen, not absolute pixels, so
   -- they're already resolution-independent - but nothing recomputes them
@@ -123,6 +125,10 @@ function M.activate(name)
   local target = all[name]
   if target then
     target:show()
+    -- Switch-in cue now that show() no longer slides windows into view (see
+    -- config.lua's windowAnim.enabled) - wiggles the windows that just
+    -- became visible instead, so a switch is still noticeable.
+    if wiggle then wiggle.wiggleWindows(target:windows()) end
   end
   M.refreshStatus()
   return target

@@ -100,4 +100,39 @@ function M.forceExit()
   if current then current.cancel() end
 end
 
+-- Wiggles every window in `wins` independently and concurrently - used to
+-- give a just-switched-to workspace's windows a "look here" cue. Deliberately
+-- bypasses the single in-flight `current` slot above (that's for the
+-- interactive per-window `j` hotkey, where a second press should cancel and
+-- restart on a new window) - these run side by side and aren't cancelled by
+-- each other or by a `j` press mid-flight.
+function M.wiggleWindows(wins, opts)
+  if not AnimFX then return end
+  opts = opts or defaultOpts
+  if opts.enabled == false then return end
+
+  local merged = {}
+  for k, v in pairs(DEFAULTS) do merged[k] = v end
+  for k, v in pairs(opts) do merged[k] = v end
+
+  local ws = workspacesRef and workspacesRef.current()
+  for _, win in ipairs(wins) do
+    if isAlive(win) then
+      local wasMember = ws ~= nil and ws:pauseWatch(win)
+      local origFrame = win:frame()
+      local o = {}
+      for k, v in pairs(merged) do o[k] = v end
+      o.onComplete = function(cancelled)
+        if not isAlive(win) then return end
+        if wasMember then
+          ws:resumeWatch(win)
+        else
+          pcall(function() win:setFrame(origFrame) end)
+        end
+      end
+      AnimFX:wiggle(win, o)
+    end
+  end
+end
+
 return M

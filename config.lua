@@ -51,7 +51,7 @@ return {
   --                 place that display directly above the main screen so
   --                 "up/out" points at it). Only meaningful with virtualDisplay.
   windowAnim = {
-    enabled = true,
+    enabled = false,
     duration = 0.28,
     easingOut = "inCubic",
     easingIn = "outCubic",

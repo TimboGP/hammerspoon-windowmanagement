@@ -119,7 +119,7 @@ function obj:start()
   tiling.start(self.config, grid, modal.getInstance(), workspaces)
 
   virtualdisplay.start(self.config)
-  workspaces.start(self.config, Workspace, overlay, grid, menubar, virtualdisplay, windowanim, pause)
+  workspaces.start(self.config, Workspace, overlay, grid, menubar, virtualdisplay, windowanim, pause, wiggle)
   membership.start(self.config, modal.getInstance(), workspaces)
   switching.start(self.config, modal.getInstance(), workspaces)
   swap.start(overlay, modal.getInstance(), workspaces)
