@@ -354,6 +354,8 @@ end
 -- the minimize path above and with every other placement path in this
 -- codebase, all of which treat slot.zone as the source of truth.
 function M:show()
+  local parkScreen = self.virtualDisplay and self.virtualDisplay.hasCachedDisplay()
+      and self.virtualDisplay.getScreen()
   for i, slot in ipairs(self.slots) do
     if slot.window then
       local win = slot.window
@@ -369,16 +371,26 @@ function M:show()
             snapAndWatch(self.gridLib, slot, win, self.gridConfig, zone)
           end
         end)
-      elseif slot.realScreen then
+      elseif slot.realScreen or (parkScreen and win:screen() == parkScreen) then
         -- Was parked: bring it back onto its real screen, then slide it in
         -- from the same edge it left by. The slide's onComplete does the
         -- authoritative zone snap and re-arms the resettle watcher; a plain
         -- snap is the fallback when the slide is off/unavailable, or if it's
         -- cancelled by a rapid re-hide (in which case hide() takes over).
-        restoreSlotFromPark(self, slot)
+        --
+        -- slot.realScreen only lives in memory, so a reload/restart between
+        -- park and show loses it even though the window is still physically
+        -- sitting on the virtual display (same gap as restoreParkedWindows) -
+        -- caught here by checking the window's live screen directly, landing
+        -- on the primary screen since the original real screen is unknown in
+        -- that case.
+        if slot.realScreen then
+          restoreSlotFromPark(self, slot)
+        else
+          win:moveToScreen(hs.screen.primaryScreen(), false, false, 0)
+        end
         local targetScreen = win:screen()
         badgeScreen = targetScreen or badgeScreen
-        local parkScreen = self.virtualDisplay and self.virtualDisplay.getScreen() or nil
         local targetFrame = targetScreen
             and self.gridLib.zoneToFrame(targetScreen:frame(), self.gridConfig, zone) or nil
         if targetScreen and targetFrame and self.windowanim then
@@ -444,12 +456,27 @@ end
 -- action, which must work even for hidden/inactive workspaces (e.g. after
 -- the vdisplay-helper daemon was killed or the display removed externally).
 -- Does not touch badges/focus, since a hidden workspace has none to show.
+--
+-- slot.realScreen only lives in memory, so a reload/restart between park and
+-- restore loses it even though the window is still physically sitting on the
+-- virtual display - restoreSlotFromPark alone would then silently no-op.
+-- Caught here as a fallback: a window with no realScreen recorded is still
+-- checked directly against the live parking screen, landing on the primary
+-- screen (the original real screen being unknown in that case) rather than
+-- being left stranded.
 function M:restoreParkedWindows()
+  local parkScreen = self.virtualDisplay and self.virtualDisplay.hasCachedDisplay()
+      and self.virtualDisplay.getScreen()
   for _, slot in ipairs(self.slots) do
-    if slot.window and slot.realScreen then
+    if slot.window then
       cancelSlotAnim(slot) -- a park-slide may still be mid-flight; stop it first
-      restoreSlotFromPark(self, slot)
-      self.gridLib.snapWindowToZone(slot.window, self.gridConfig, slot.zone)
+      if slot.realScreen then
+        restoreSlotFromPark(self, slot)
+        self.gridLib.snapWindowToZone(slot.window, self.gridConfig, slot.zone)
+      elseif parkScreen and slot.window:screen() == parkScreen then
+        slot.window:moveToScreen(hs.screen.primaryScreen(), true, false, 0)
+        self.gridLib.snapWindowToZone(slot.window, self.gridConfig, slot.zone)
+      end
     end
   end
 end

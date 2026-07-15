@@ -96,6 +96,25 @@ focus) and get the exact same tiling-safe behavior as pressing `j` by hand.
 
 ---
 
+## To discuss: restore-parked-windows blocked while disabled
+
+Noticed 2026-07-15: `pause.lua`'s global disable doesn't stop you from
+restoring parked windows *everywhere* — just via the leader-modal `r` hotkey.
+`modal.lua`'s `entered()` checks `isPaused()` and immediately exits (with an
+alert) before any bound key runs, including `r` (bound in `init.lua` on
+`modal.getInstance()`). But the menubar's "Bring Back Parked Windows" item
+(`init.lua`, calls `workspaces.restoreAllParked()` directly, not through the
+modal) still works regardless of pause state — as does the same call made
+automatically during virtual-display cleanup on quit.
+
+Open question: is this inconsistency intentional (menu bar as an
+always-available escape valve) or should the hotkey path also stay reachable
+while disabled — e.g. by carving out "recovery" actions (restore parked,
+force reset) as exempt from the `isPaused` gate, rather than only reachable
+via the menu?
+
+---
+
 # Roadmap (planned, in priority order)
 
 Specs below were laid out 2026-07-10 as the intended next sequence. The
