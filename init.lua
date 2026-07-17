@@ -171,7 +171,7 @@ function obj:start()
   focus.start(self.config, grid, modal.getInstance(), workspaces)
   windowlist.start(self.config, modal.getInstance(), workspaces, focus)
   windowtab.start(self.config, modal.getInstance(), workspaces)
-  untracked.start(self.config, modal.getInstance(), workspaces)
+  untracked.start(self.config, modal.getInstance(), workspaces, virtualdisplay, windowanim)
 
   if AnimFX then
     AnimFX:init()
@@ -429,6 +429,12 @@ function obj:start()
   end
 
   return self
+end
+
+--- Structured {key, description} rows for the leader modal's bindings, for
+--- external cheat-sheet tools (e.g. CheatSheet.spoon) to query.
+function obj:bindings()
+  return modal.bindings()
 end
 
 function obj:stop()

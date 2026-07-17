@@ -12,14 +12,41 @@ function M.start(config, callbacks)
     end)
   end
 
-  local cheatSheet = table.concat({
-    "WM leader engaged",
-    "t tile | g add/remove | 1-9/p/n workspace | x swap",
-    "s save/load/delete | i autotrack | v reveal | f/c focus | w windows | tab cycle | u untracked | j wiggle",
-    config.virtualDisplay and config.virtualDisplay.enabled
-        and "r restore parked | esc cancel"
-        or "esc cancel",
-  }, "\n")
+  local bindings = {
+    { key = "t", description = "tile" },
+    { key = "g", description = "workspace membership toggle (add/remove)" },
+    { key = "1-9", description = "switch to workspace slot" },
+    { key = "p", description = "workspace picker" },
+    { key = "n", description = "new workspace" },
+    { key = "x", description = "swap windows" },
+    { key = "s", description = "save/load/delete workspace" },
+    { key = "i", description = "autotrack toggle" },
+    { key = "v", description = "reveal window" },
+    { key = "f", description = "focus" },
+    { key = "c", description = "center/close" },
+    { key = "w", description = "window list" },
+    { key = "tab", description = "cycle windows" },
+    { key = "u", description = "untracked window handling" },
+    { key = "shift+u", description = "park all off-workspace windows" },
+    { key = "j", description = "wiggle toggle" },
+  }
+  if config.virtualDisplay and config.virtualDisplay.enabled then
+    table.insert(bindings, { key = "r", description = "restore parked window" })
+  end
+  M._bindings = bindings
+
+  local cheatSheetLines = { "WM leader engaged" }
+  local row = {}
+  for _, b in ipairs(bindings) do
+    table.insert(row, b.key .. " " .. b.description)
+    if #row == 4 then
+      table.insert(cheatSheetLines, table.concat(row, " | "))
+      row = {}
+    end
+  end
+  if #row > 0 then table.insert(cheatSheetLines, table.concat(row, " | ")) end
+  table.insert(cheatSheetLines, "esc cancel")
+  local cheatSheet = table.concat(cheatSheetLines, "\n")
 
   function modal:entered()
     if callbacks.isPaused and callbacks.isPaused() then
@@ -66,6 +93,12 @@ end
 
 function M.exit()
   if M.instance then M.instance:exit() end
+end
+
+-- Structured {key, description} rows for the leader modal's flat verb menu,
+-- built once in M.start(); consumed by CheatSheet.spoon.
+function M.bindings()
+  return M._bindings or {}
 end
 
 -- Exposes the raw hs.hotkey.modal so other modules (e.g. tiling.lua) can

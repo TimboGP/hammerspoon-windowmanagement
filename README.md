@@ -368,6 +368,8 @@ memorize it up front.
 | `f`/`c` | Toggle fullscreen/centered focus mode for the focused window |
 | `w` | List active workspace's windows; `enter`/`⌘enter`/`⌥enter` focuses/removes/pulls-out-center the picked one |
 | `tab`/`shift+tab` | Cycle focus forward/backward through the active workspace's windows |
+| `u` | Chooser: pull an untracked/other-workspace window into the active workspace |
+| `shift+u` | Park every untracked/other-workspace window (virtualDisplay park if enabled, else minimize) |
 | `j` | Wiggle the focused window (works even while tiled) |
 | `r` | Bring back any parked windows (experimental virtualDisplay strategy only) |
 | `esc` (in any sub-mode) | Cancel back out |

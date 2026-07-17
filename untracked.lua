@@ -2,6 +2,9 @@ local M = {}
 
 local config = nil
 local workspaces = nil
+local hideConfig = nil     -- config.virtualDisplay, or nil
+local virtualDisplay = nil -- virtualdisplay module, or nil
+local windowanim = nil     -- windowanim module, or nil
 
 local function isDefaultIgnored(bundleID)
   for _, id in ipairs(config.defaultIgnoreList) do
@@ -82,13 +85,79 @@ local function showChooser()
   chooser:show()
 end
 
-function M.start(cfg, leaderModal, workspacesModule)
+local function useVirtualDisplay()
+  return hideConfig and hideConfig.enabled and virtualDisplay ~= nil
+end
+
+local function isAlive(win)
+  local ok, visible = pcall(function() return win:isVisible() ~= nil end)
+  return ok and visible
+end
+
+-- Hides a single window the same way workspace.lua:hide() hides a member
+-- slot (slide-out + virtualDisplay park if enabled/available, else plain
+-- minimize) - but for a window that isn't a workspace slot, so there's no
+-- realScreen/watcher bookkeeping to do. Idempotent: no-ops on a window
+-- that's already minimized or already sitting on the parking display, so
+-- re-running "park all" doesn't re-trigger the slide on windows it already
+-- parked.
+local function parkWindow(win)
+  if win:isMinimized() then return end
+
+  local useVD = useVirtualDisplay()
+  local vdScreen = useVD and virtualDisplay.getScreen() or nil
+  if useVD and not vdScreen then
+    virtualDisplay.ensureDisplay(function() end) -- fire-and-forget for next time
+  end
+
+  if not vdScreen then
+    win:minimize() -- minimize fallback is deliberately un-animated
+    return
+  end
+  if win:screen() == vdScreen then return end -- already parked
+
+  local realScreen = win:screen()
+  local handle = windowanim and windowanim.slideOut(win, realScreen, vdScreen, function(cancelled)
+    if cancelled or not isAlive(win) then return end
+    virtualDisplay.parkWindow(win)
+  end)
+  if not handle then
+    virtualDisplay.parkWindow(win)
+  end
+end
+
+-- Parks every trackable window not owned by the current workspace - the
+-- untracked ones the chooser above lets you pull in one at a time, plus
+-- anything sitting in another workspace (including the default
+-- "Playground") that happens to still be visible. A quick way to declutter
+-- down to just the active workspace without switching away and back.
+local function parkAllUntracked()
+  local entries = untrackedEntries()
+  if #entries == 0 then
+    hs.alert.show("WM: no off-workspace windows to park", 1.5)
+    return
+  end
+  for _, entry in ipairs(entries) do
+    parkWindow(entry.window)
+  end
+  hs.alert.show("WM: parked " .. #entries .. " off-workspace window(s)", 1.5)
+end
+
+function M.start(cfg, leaderModal, workspacesModule, virtualDisplayModule, windowanimModule)
   config = cfg
   workspaces = workspacesModule
+  hideConfig = cfg.virtualDisplay
+  virtualDisplay = virtualDisplayModule
+  windowanim = windowanimModule
 
   leaderModal:bind({}, "u", nil, function()
     leaderModal:exit()
     showChooser()
+  end)
+
+  leaderModal:bind({ "shift" }, "u", nil, function()
+    leaderModal:exit()
+    parkAllUntracked()
   end)
 
   return M
