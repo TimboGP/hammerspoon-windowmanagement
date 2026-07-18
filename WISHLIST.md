@@ -115,6 +115,109 @@ via the menu?
 
 ---
 
+## Persisted ignore list (block by bundle ID)
+
+Discussed 2026-07-18. Today there are two related-but-different lists, and
+neither is what's being asked for here:
+
+- `config.defaultIgnoreList` (`config.lua`) is a hardcoded block-list (Hammerspoon
+  itself, system UI, etc.) — editing it means editing the config file and
+  reloading.
+- `ignore.lua` (despite the name) is an *allow*-list: `autotrack.lua`'s `i`
+  hotkey opts an app *into* auto-tracking; `enabled[bundleID] = true`,
+  persisted to `config.autoTrackFile`.
+
+What's missing is a user-editable, persisted *block*-list — apps that should
+never be pulled into a workspace or offered anywhere (untracked chooser,
+auto-track, the new pull/playground shortcuts below), without a config-file
+edit + reload. `ignore.lua` is the template to clone: same
+`bundleID -> true` set shape, same `hs.json.read`/`hs.json.write` persistence
+pattern, just a second file (e.g. `config.blockListFile`) and a second
+in-memory set.
+
+Wiring: `untracked.lua`'s `isTrackable` and `watcher.lua`'s trackable check
+both currently only consult `config.defaultIgnoreList` — both need to also
+consult the new persisted block-list. A toggle hotkey mirroring
+`autotrack.toggleFocusedApp` (add/remove the focused window's app from the
+block-list) is the natural UI; refuse toggling apps already on
+`config.defaultIgnoreList` off the block-list (same refusal `ignore.toggle`
+already does for the opposite case), since those are non-negotiable.
+
+---
+
+## Two new shortcuts: playground handoff and ownership-aware pull
+
+Discussed 2026-07-18, alongside the block-list above. Both build on the
+always-present `Playground` workspace (`workspaces.lua`'s
+`M.DEFAULT_WORKSPACE`, from the "no implicit no-workspace state" change) and
+on a gap in how membership moves windows between workspaces today:
+
+- `membership.lua`'s `a` (add focused window) just calls
+  `ws:addWindow(win)` — it does **not** check whether the window is already
+  owned by a different workspace, so pressing `a` on a window that's a
+  member elsewhere leaves it double-registered (in both workspaces' `slots`).
+- `untracked.lua`'s `pullIntoCurrent` (used by the `u` chooser and,
+  implicitly, `parkAllUntracked`) already gets this right: it looks up the
+  current owner via `ownerOf(win)` and calls `owner:removeWindow(choice.window)`
+  *before* `cur:addWindow(choice.window)` — but only reachable through the
+  chooser, not as a direct single-key action on the focused window.
+
+Both new shortcuts should reuse that ownership-aware pull logic (promote it
+out of `untracked.lua`'s local `pullIntoCurrent`, parameterized by target
+workspace, rather than duplicating the remove-then-add dance) rather than
+building on membership's plain `addWindow`:
+
+1. **Pull up window and enable Playground.** One key on the focused window:
+   ownership-aware-pull it into `Playground` (removing it from whatever
+   workspace currently owns it, if any), then `workspaces.switchTo("Playground")`
+   so you land there immediately. A quick "pop this into my scratch space and
+   go look at it" action, as opposed to today's `u`/`shift+u` which only ever
+   move windows *out of* the current workspace.
+
+2. **Pull window into current workspace.** One key on the focused window:
+   ownership-aware-pull it into `workspaces.current()` — i.e. `membership.lua`'s
+   `a`, but fixed to remove it from its prior owner (including `Playground`)
+   first, so a window never ends up silently registered in two workspaces at
+   once. `addWindow`/`removeWindow` already flip `dirty` on both the losing
+   and gaining workspace (`workspace.lua`'s `setDirty`), so the menu bar's
+   dirty dot (`\u{25cf}`) should correctly reflect both sides of the move
+   without extra plumbing — worth confirming in testing, since today's `a`
+   only ever touches one workspace at a time and this is a two-workspace
+   mutation.
+
+Open question: should this replace `membership.lua`'s `a`, or coexist as a
+separate binding? Silently changing `a`'s behavior to also steal membership
+from other workspaces could surprise existing muscle memory; a separate key
+is the safer default unless the double-registration bug above is judged bad
+enough to warrant fixing `a` in place.
+
+---
+
+## To discuss: animation/park logic duplicated across modules
+
+Noticed 2026-07-18 while reading `untracked.lua`: its `parkWindow` reimplements
+a shrunk version of the same slide-out/animHandle/fallback-to-minimize dance
+that `workspace.lua`'s `hide()` already does for member slots (see
+`workspace.lua`'s `cancelSlotAnim`/`slot.animHandle` bookkeeping around lines
+91 and 312-319, versus `untracked.lua`'s `parkWindow`, lines ~104-127) — just
+without a `slot` to hang the handle/watcher off of. `windowanim.lua` itself
+(`slideOut`/`slideIn`/cancel-all) is already the shared low-level primitive
+both call into, so the duplication is in the *calling* pattern (check
+minimized → resolve virtual-display screen → slide with a park/minimize
+fallback in the completion callback), not the animation itself.
+
+Worth a pass to fold `untracked.lua`'s `parkWindow` into a shared "park this
+window, animated, with fallback" helper (module scope tentative: perhaps
+`windowanim.lua` itself, since it already owns the slide primitives, or a new
+thin `park.lua`) that both `workspace.lua`'s hide path and `untracked.lua` call
+into, so the fallback/edge-case logic (already-minimized short-circuit,
+missing virtual display, cancelled-slide handling) is defined once. Lower
+priority than the numbered roadmap items below — this is cleanup on
+already-working code, not a missing feature — but flagged here so it isn't
+lost.
+
+---
+
 # Roadmap (planned, in priority order)
 
 Specs below were laid out 2026-07-10 as the intended next sequence. The
