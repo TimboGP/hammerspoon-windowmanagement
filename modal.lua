@@ -2,7 +2,11 @@ local M = {}
 
 function M.start(config, callbacks)
   callbacks = callbacks or {}
-  local modal = hs.hotkey.modal.new(config.leader[1], config.leader[2])
+  -- Unbound: entry is now driven by the shared keybind_registry (see
+  -- init.lua's registration under path {"w"}), not a direct hs.hotkey bind
+  -- on config.leader here, so the physical `⌘⌃⌥Space` combo is claimed
+  -- exactly once, by Leader.spoon.
+  local modal = hs.hotkey.modal.new()
   local idleTimer = nil
 
   local function resetIdleTimer()

@@ -1,7 +1,10 @@
 local home = os.getenv("HOME")
 
 return {
-  leader = { { "cmd", "ctrl", "alt" }, "space" },
+  -- The physical leader combo (⌘⌃⌥Space) is no longer bound here - it's
+  -- claimed once by Leader.spoon (see dotfiles' init.lua) and this modal is
+  -- reached via the shared keybind_registry under path {"w"}. See
+  -- modal.lua / init.lua's obj:start().
   escapeHatch = { { "cmd", "ctrl", "alt", "shift" }, "escape" },
   pauseHotkey = { { "cmd", "ctrl", "alt", "shift" }, "space" },
 

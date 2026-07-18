@@ -17,6 +17,7 @@ obj.spoonPath = hs.spoons.scriptPath()
 local config = dofile(obj.spoonPath .. "config.lua")
 local menubar = dofile(obj.spoonPath .. "menubar.lua")
 local modal = dofile(obj.spoonPath .. "modal.lua")
+local KeybindRegistry = require("keybind_registry")
 local grid = dofile(obj.spoonPath .. "grid.lua")
 local tiling = dofile(obj.spoonPath .. "tiling.lua")
 local overlay = dofile(obj.spoonPath .. "overlay.lua")
@@ -114,6 +115,19 @@ function obj:start()
   modal.start(self.config, {
     forceReset = resetAllSubmodals,
     isPaused = pause.isPaused,
+  })
+
+  -- The leader combo itself is owned by Leader.spoon; this just registers
+  -- the "w" (Windowing) domain's single entry point, which still opens
+  -- WindowMgmt's own pre-existing flat verb menu one level in (see
+  -- shortcut-system.md's "w domain detail (macOS)"). Flattening that menu
+  -- into individual registry leaves is unscoped future work, not this pass.
+  KeybindRegistry.bind({
+    scope = "leader",
+    path = { "w" },
+    desc = "windowing",
+    fn = function() modal.getInstance():enter() end,
+    spoonName = self.name,
   })
 
   tiling.start(self.config, grid, modal.getInstance(), workspaces)
@@ -438,6 +452,8 @@ function obj:bindings()
 end
 
 function obj:stop()
+  KeybindRegistry.unbindBySpoon(self.name)
+
   if AnimFX then AnimFX:stop() end
   watcher.stop()
   workspaces.stop()
