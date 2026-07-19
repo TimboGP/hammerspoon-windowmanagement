@@ -69,7 +69,7 @@ end
 function obj:start()
   checkAccessibility()
 
-  menubar.start(self.config)
+  menubar.start(self.config, obj.spoonPath)
   overlay.start(self.config, grid)
 
   -- Started early so persisted UI preferences (badge visibility, virtual-
