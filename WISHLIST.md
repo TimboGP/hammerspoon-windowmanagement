@@ -221,7 +221,34 @@ gated behind the ones above them.
 
 ---
 
-## 1. Named layouts
+## ✅ 1. Named layouts — IMPLEMENTED
+
+Implemented 2026-07-19, matching the spec below closely: new `layouts.lua`
+with `columns`/`rows`/`master` (masterStack)/`grid` (gridNxM) zone math,
+`M.apply(ws, name)` looping `ws:retile` over occupied slots, and a leader
+sub-mode on `l` (`c`/`r`/`m`/`g`, `esc` to cancel). Two differences from the
+sketch:
+
+- `M.apply` returns early (with an alert) on an empty workspace instead of
+  calling the zone-math functions with `n = 0` — `gridNxM`'s
+  `math.ceil(math.sqrt(0) / 0)` would otherwise hit a `0/0` NaN.
+- No menu-bar "Layout" submenu — `t` (tiling) doesn't have one either, so
+  this stays consistent with that sibling feature rather than being the odd
+  one out.
+
+The "make focused window the master" extra is in too, bound to `shift+m`
+inside the `l` sub-mode: reorders the focused window's slot to the front of
+`ws.slots`, then re-applies whichever of the four layouts this workspace
+last had (`layouts.lua` tracks that per-workspace, in memory only, keyed by
+name not instance) — defaulting to `master` if none yet, since that's the
+layout order actually matters for.
+
+Not done: the "bridge to later specs" idea (a workspace remembering its
+chosen layout so new auto-tracked windows re-trigger it) — that's real
+scope creep into the rule engine (#2) below, not a named-layouts feature.
+
+<details>
+<summary>Original spec</summary>
 
 Today tiling is one-window-at-a-time: `t` + a preset key snaps *the focused
 window* into a zone (`tiling.lua` → `snap()` → `ws:retile(win, zone)` for a
@@ -284,6 +311,8 @@ Edge cases / notes:
 - **Bridge to later specs:** if a workspace remembers its chosen layout name,
   `addWindow`/auto-track could re-apply the layout on every new window
   (dynamic tiling), and the rule engine (#2) could name a layout as an action.
+
+</details>
 
 ---
 

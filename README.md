@@ -84,7 +84,19 @@ Accessibility).
   bottom half, `1`/`2`/`3` for left/center/right third, `4`/`5` for left/
   right two-thirds, `y`/`u`/`b`/`n` for TL/TR/BL/BR quarters, `f` for full
   screen, `g` for a free grid-select (hjkl grows the zone, shift+hjkl moves
-  its start corner, Enter confirms, Esc cancels), `esc` to back out.
+  its start corner, Enter confirms, Esc cancels), `esc` to back out. Tiles
+  one window at a time — for arranging every member window at once, see
+  Layouts below.
+- Layouts (`l` from the leader modal): re-arranges every window currently in
+  the active workspace at once, in slot order. `c` columns (n equal vertical
+  strips), `r` rows (n equal horizontal strips), `m` master-stack (slot 1 =
+  left half, the rest stacked on the right), `g` grid (as square a grid as
+  `n` allows). `shift+m` makes the focused window the master (re-orders it to
+  slot 1) and re-applies whichever of the four you used last (or master-stack
+  if none yet). Only touches windows already in the workspace — add a window
+  first (`g`/`a` below) if it isn't a member yet. Empty (placeholder) slots
+  are skipped, so the result is always gapless regardless of which slots
+  happen to be empty.
 - Workspace membership (`g` from the leader modal): `a` adds the focused
   window to the workspace — filling the first empty (placeholder) slot if
   one exists, snapping the window into it, otherwise registering a new slot
@@ -360,6 +372,8 @@ memorize it up front.
 | Key(s) | Action |
 |---|---|
 | `t` → preset/`g` | Tile focused window (halves/thirds/quarters/full/custom) |
+| `l` → `c`/`r`/`m`/`g` | Apply a layout (columns/rows/master-stack/grid) to every window in the active workspace |
+| `l` → `shift+m` | Make the focused window the master and re-apply the last-used layout |
 | `g` → `a`/`r` | Add/remove focused window to/from the active workspace |
 | `a` | Shortcut: add focused window to the active workspace (same as `g` → `a`) |
 | `1`-`9` | Switch to workspace slot (creating an empty one if unused) |
