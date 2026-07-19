@@ -6,21 +6,31 @@ design.
 
 ---
 
-## ✅ Auto-load on start — IMPLEMENTED (as auto-load-*last-used*)
+## ✅ Auto-load on start — IMPLEMENTED (as auto-load-*last-used*, populate-only)
 
-Implemented 2026-07-10. Rather than the originally-sketched fixed
-config-name (`autoLoadArrangement = "WorkDay"`), it auto-loads whatever
-workspace/arrangement you were last *in* — no per-machine name to hardcode,
-it just resumes where you left off. Details:
+Implemented 2026-07-10, revised 2026-07-19. Rather than the
+originally-sketched fixed config-name (`autoLoadArrangement = "WorkDay"`),
+it auto-*populates* whatever workspace/arrangement you were last *in* — no
+per-machine name to hardcode — but, per explicit direction, no longer
+switches to it: Playground is always the current, shown workspace on
+boot/reload, with the rest loaded in the background and ready to switch
+into. Details:
 
-- `config.autoLoadLast = true` (default on; set false to always boot empty).
+- `config.autoLoadLast = true` (default on; set false to always boot empty,
+  skipping the re-populate entirely).
 - A `settings.lastLoaded = { kind, name }` pointer, updated whenever you
-  load a workspace/arrangement, or save one *in place* (`s w` / `s a`) —
-  deliberately not on "save as new" (`s shift+w`), which writes a duplicate
-  you don't switch to.
-- `saveload.lua` exposes non-interactive `M.loadWorkspaceByName` /
-  `M.loadArrangementByName` / `M.loadLast(last)`; `init.lua` calls
-  `saveload.loadLast(savedSettings.lastLoaded)` at the end of `start()`.
+  load a workspace/arrangement *interactively* (`s l` / `s shift+l`, or the
+  menu bar), or save one *in place* (`s w` / `s a`) — deliberately not on
+  "save as new" (`s shift+w`), which writes a duplicate you don't switch to,
+  nor on the boot-time auto-populate itself (which would just rewrite the
+  same pointer it read).
+- `saveload.lua`'s `M.loadWorkspaceByName(name, switchToIt)` /
+  `M.loadArrangementByName(name, switchToIt)` take an optional third-ish
+  `switchToIt` (default `true`) controlling whether the load ends by
+  activating the target (interactive picker/menu bar calls) or just hiding
+  it right after populating (`M.loadLast` passes `false`); `init.lua` calls
+  `saveload.loadLast(savedSettings.lastLoaded)` at the end of `start()`,
+  after `workspaces.start()` has already made Playground current.
   The pointer is written through `savedSettings` in `init.lua` (single
   source of truth) so it can't be clobbered by the other settings toggles.
 
@@ -28,14 +38,16 @@ Still needs Hammerspoon itself set to launch at login (its own Preferences →
 "Launch at login", or System Settings → General → Login Items) — out of
 scope for this Spoon to configure.
 
-Possible follow-ups if the "last used" default ever chafes:
+Possible follow-ups if this default ever chafes:
 - A menu-bar checkbox to toggle `autoLoadLast` live (like the wiggle/anim
   toggles), persisted in `settings.json`.
 - A `config.autoLoadArrangement = "<name>"` override that pins a fixed
   arrangement regardless of last-used, for a deterministic boot layout.
-- Track the *active workspace within* a loaded arrangement, so resuming an
-  arrangement returns to the sub-workspace you last had focused rather than
-  the arrangement's saved `activeWorkspace`.
+- Track the *active workspace within* a loaded arrangement, so switching
+  into a re-populated arrangement lands on the sub-workspace you last had
+  focused rather than the arrangement's saved `activeWorkspace`.
+- A quick "switch to whatever was just auto-populated" action, now that
+  boot no longer switches to it automatically.
 
 ---
 

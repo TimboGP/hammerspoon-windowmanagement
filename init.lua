@@ -430,8 +430,11 @@ function obj:start()
 
   menubar.setMenu(buildMenu)
 
-  -- Boot straight into the last workspace/arrangement used (loaded, or saved
-  -- in place) in the previous session, unless disabled via config.autoLoadLast.
+  -- Re-populate the last workspace/arrangement used (loaded, or saved in
+  -- place) in the previous session, unless disabled via config.autoLoadLast -
+  -- but without switching to it: Playground (already activated by
+  -- workspaces.start() above) stays the current, shown workspace; the
+  -- re-populated workspace(s) load in and sit hidden, ready to switch into.
   -- The pointer lives in settings.lastLoaded, kept current by the recordLastUsed
   -- callback wired into saveload.start above. A nil pointer (fresh install) or
   -- a since-deleted target is a graceful no-op. Runs last, so every module it

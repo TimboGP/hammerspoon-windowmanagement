@@ -153,31 +153,46 @@ end
 
 -- Public so the auto-load-last-used start path (see M.loadLast / init.lua)
 -- can re-load a single workspace non-interactively, not just via the picker.
-function M.loadWorkspaceByName(name)
-  deps.workspaces.hideCurrent()
+-- `switchToIt` (default true) controls whether this becomes the current,
+-- shown workspace: true for the interactive picker (the point of loading it
+-- is to go work in it); false for the boot-time auto-load, which now only
+-- wants the data populated in the background - Playground stays current
+-- (see M.loadLast).
+function M.loadWorkspaceByName(name, switchToIt)
+  if switchToIt == nil then switchToIt = true end
+  if switchToIt then
+    deps.workspaces.hideCurrent()
+  end
   hs.alert.show("WM: loading '" .. name .. "'...", 1.5)
   populateWorkspaceFromSaved(name, function(ws)
-    if ws then
+    if not ws then return end
+    if switchToIt then
       deps.workspaces.activate(name)
       recordLastUsed("workspace", name)
+    else
+      ws:hide()
     end
   end)
 end
 
--- Public for the same reason as M.loadWorkspaceByName above.
-function M.loadArrangementByName(name)
+-- Public for the same reason as M.loadWorkspaceByName above; `switchToIt`
+-- has the same meaning.
+function M.loadArrangementByName(name, switchToIt)
+  if switchToIt == nil then switchToIt = true end
   local data = deps.persistence.loadArrangement(name)
   if not data then
     hs.alert.show("WM: could not load arrangement '" .. name .. "'", 1.5)
     return
   end
 
-  deps.workspaces.hideCurrent()
+  if switchToIt then
+    deps.workspaces.hideCurrent()
+    -- Recorded as soon as we commit to loading it (rather than after the async
+    -- member loads finish): a partially-loaded arrangement is still the one the
+    -- user is in, and is what should come back on the next start.
+    recordLastUsed("arrangement", name)
+  end
   hs.alert.show("WM: loading arrangement '" .. name .. "'...", 1.5)
-  -- Recorded as soon as we commit to loading it (rather than after the async
-  -- member loads finish): a partially-loaded arrangement is still the one the
-  -- user is in, and is what should come back on the next start.
-  recordLastUsed("arrangement", name)
 
   local pending = #data.workspaces
   if pending == 0 then
@@ -185,10 +200,12 @@ function M.loadArrangementByName(name)
   end
   for _, wsName in ipairs(data.workspaces) do
     populateWorkspaceFromSaved(wsName, function(ws)
-      if ws and wsName == data.activeWorkspace then
-        deps.workspaces.activate(wsName)
-      elseif ws then
-        ws:hide()
+      if ws then
+        if switchToIt and wsName == data.activeWorkspace then
+          deps.workspaces.activate(wsName)
+        else
+          ws:hide()
+        end
       end
       pending = pending - 1
       if pending <= 0 then
@@ -204,12 +221,17 @@ end
 -- or nil. A nil/malformed record (fresh install) or a since-deleted target
 -- is a graceful no-op - the underlying load funcs already alert and bail if
 -- the file is gone, so a stale pointer can't error the whole start().
+--
+-- Passes switchToIt=false: the point of this call is to have last session's
+-- workspaces/arrangement populated and ready to switch into, not to actually
+-- switch into one - Playground (already made current by workspaces.M.start,
+-- which runs before this) is always the default landing spot on boot/reload.
 function M.loadLast(last)
   if type(last) ~= "table" or not last.name then return end
   if last.kind == "arrangement" then
-    M.loadArrangementByName(last.name)
+    M.loadArrangementByName(last.name, false)
   else
-    M.loadWorkspaceByName(last.name)
+    M.loadWorkspaceByName(last.name, false)
   end
 end
 

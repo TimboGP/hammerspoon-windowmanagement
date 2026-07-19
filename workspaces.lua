@@ -69,10 +69,10 @@ function M.start(config, workspaceClass, overlayModule, grid, menubarModule, vir
   screenWatcher:start()
 
   -- Boots straight into the default workspace so there's never a gap where
-  -- currentName is nil - init.lua's auto-load-last (if enabled) runs after
-  -- M.start() returns and will hideCurrent()/activate() over this the moment
-  -- it has something to switch to, exactly like switching away from any
-  -- other workspace.
+  -- currentName is nil, and stays current: init.lua's auto-load-last (if
+  -- enabled) runs after M.start() returns, but only populates last session's
+  -- workspace/arrangement data in the background (saveload.loadLast passes
+  -- switchToIt=false) rather than activating over Playground.
   if not all[M.DEFAULT_WORKSPACE] then
     create(M.DEFAULT_WORKSPACE)
   end

@@ -12,10 +12,11 @@ return {
 
   workspaceSlotCount = 9,
 
-  -- On start, automatically re-load whatever workspace or arrangement was
+  -- On start, automatically re-populate whatever workspace or arrangement was
   -- last loaded or saved in the previous session (tracked as `lastLoaded`
-  -- in settings.json - see saveload.lua / init.lua). Set false to always
-  -- boot into an empty state with nothing active.
+  -- in settings.json - see saveload.lua / init.lua), without switching to it -
+  -- Playground is always the current workspace on boot/reload. Set false to
+  -- skip the re-populate and boot into an empty state with nothing loaded.
   autoLoadLast = true,
 
   storageDir = home .. "/.hammerspoon/window-mgmt",
