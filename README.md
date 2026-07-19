@@ -150,16 +150,26 @@ Accessibility).
   continue with the rest); deleting an arrangement never touches its
   member workspaces.
 - Auto-track (`i` from the leader modal): toggles whether the focused
-  window's app is auto-tracked. While enabled for an app, any *new* window
-  it opens is automatically added to whichever workspace is currently
-  active (same logic as `g` `a`, just triggered by window creation instead
-  of a keypress) via a `hs.window.filter` scoped to only auto-tracked apps
-  (not a global filter watching every app, which is known to add
-  noticeable lag). Apps on the default ignore list (Hammerspoon itself,
-  Spotlight, system dialogs, etc. — see `config.lua`) can't be
-  auto-tracked. The list persists to
-  `~/.hammerspoon/window-mgmt/autotrack.json`. Manual `g` `a`/`g` `r`
-  remains the default for everything else.
+  window's app is auto-tracked. `i` is backed by a small rule engine
+  (`rules.lua`): each rule is `{ match = { bundleID, titlePattern? },
+  action = { workspace?, zone?, layout? } }`, tried in order (first match
+  wins) whenever a new window of a rule-matched app is created, via a
+  `hs.window.filter` scoped to only rule-matched apps (not a global filter
+  watching every app, which is known to add noticeable lag). `i` manages the
+  simplest possible rule for the focused app — empty action, meaning
+  "current workspace, default placement" (the same logic as `g` `a`, just
+  triggered by window creation instead of a keypress) — and is a blunt
+  on/off switch: pressing it again removes *every* rule for that app,
+  simple or captured. `shift+g` captures a richer rule instead: the focused
+  window's app, its *current* workspace, and its current zone (if it's a
+  tiled member), prepended so it's tried before any plain `i` rule for the
+  same app — so from then on, new windows of that app land pre-placed in
+  that workspace/zone even while a different workspace is active. Apps on
+  the default ignore list or the block-list (`shift+i` below) can't get a
+  rule. Rules persist to `~/.hammerspoon/window-mgmt/autotrack.json` (an
+  older plain bundle-ID list from before rules existed still loads fine,
+  migrated into simple rules on read). Manual `g` `a`/`g` `r` remains the
+  default for everything else.
 - Block-list (`shift+i` from the leader modal): toggles whether the focused
   window's app is excluded everywhere — the untracked chooser (`u`),
   `shift+p`, top-level `a`/`g` `a`, and auto-track (`i`, which refuses to
@@ -383,6 +393,7 @@ memorize it up front.
 | `l` → `c`/`r`/`m`/`g` | Apply a layout (columns/rows/master-stack/grid) to every window in the active workspace |
 | `l` → `shift+m` | Make the focused window the master and re-apply the last-used layout |
 | `g` → `a`/`r` | Add/remove focused window to/from the active workspace |
+| `shift+g` | Capture an auto-track rule: focused app -> this workspace + zone |
 | `a` | Shortcut: add focused window to the active workspace (same as `g` → `a`) |
 | `1`-`9` | Switch to workspace slot (creating an empty one if unused) |
 | `p` | Picker: switch to any known workspace by name |
@@ -391,7 +402,7 @@ memorize it up front.
 | `x` → letter/arrow | Swap focused window with another (hint labels or directional) |
 | `s` → `w`/`a`/`l`/`shift+l` | Save workspace / save arrangement / load workspace / load arrangement |
 | `s` → `d`/`shift+d` | Delete a saved workspace / saved arrangement (with confirmation) |
-| `i` | Toggle auto-track for the focused window's app |
+| `i` | Toggle the simple auto-track rule for the focused window's app |
 | `shift+i` | Toggle the block-list for the focused window's app (excluded everywhere) |
 | `v` | Reveal: flash borders of every window in the active workspace |
 | `f`/`c` | Toggle fullscreen/centered focus mode for the focused window |

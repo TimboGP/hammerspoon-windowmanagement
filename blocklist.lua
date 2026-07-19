@@ -27,7 +27,7 @@ end
 
 -- Refuses toggling apps already on config.defaultIgnoreList - those are
 -- already permanently excluded, so blocking them here would be redundant
--- (mirrors ignore.lua's M.toggle refusing the same apps for the opposite
+-- (mirrors rules.lua's M.toggle refusing the same apps for the opposite
 -- reason).
 function M.toggle(bundleID)
   if isDefaultIgnored(bundleID) then
@@ -52,11 +52,11 @@ function M.blockedList()
 end
 
 -- Toggles the focused window's app on the block-list. If this newly blocks
--- an app that's currently auto-track-enabled (ignore.lua's allow-list),
+-- an app that's currently auto-track-enabled (rules.lua has a rule for it),
 -- also force auto-track off for it and refreshes watcher.lua's window
--- filter - otherwise a stale auto-track entry would keep tracking new
--- windows of an app that's supposed to be blocked everywhere.
-local function toggleFocusedApp(ignoreModule, watcherModule)
+-- filter - otherwise a stale rule would keep tracking new windows of an app
+-- that's supposed to be blocked everywhere.
+local function toggleFocusedApp(rulesModule, watcherModule)
   local win = hs.window.focusedWindow()
   if not win then
     hs.alert.show("WM: no focused window", 1)
@@ -73,15 +73,15 @@ local function toggleFocusedApp(ignoreModule, watcherModule)
     hs.alert.show("WM: " .. err, 1.5)
     return
   end
-  if nowBlocked and ignoreModule.isEnabled(bundleID) then
-    ignoreModule.toggle(bundleID)
+  if nowBlocked and rulesModule.isEnabled(bundleID) then
+    rulesModule.toggle(bundleID)
     watcherModule.refresh()
   end
   local appName = app:name() or bundleID
   hs.alert.show("WM: " .. (nowBlocked and "blocked" or "unblocked") .. " " .. appName, 1.5)
 end
 
-function M.start(cfg, leaderModal, ignoreModule, watcherModule)
+function M.start(cfg, leaderModal, rulesModule, watcherModule)
   config = cfg
   if hs.fs.attributes(config.blockListFile) then
     local data = hs.json.read(config.blockListFile)
@@ -94,7 +94,7 @@ function M.start(cfg, leaderModal, ignoreModule, watcherModule)
 
   leaderModal:bind({ "shift" }, "i", nil, function()
     leaderModal:exit()
-    toggleFocusedApp(ignoreModule, watcherModule)
+    toggleFocusedApp(rulesModule, watcherModule)
   end)
 
   return M

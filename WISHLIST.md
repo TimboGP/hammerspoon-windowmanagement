@@ -321,7 +321,51 @@ Edge cases / notes:
 
 ---
 
-## 2. Rule engine for improved auto-tracking
+## ✅ 2. Rule engine for improved auto-tracking — IMPLEMENTED
+
+Implemented 2026-07-19, following the spec below closely, plus one design
+change: it builds on the persisted block-list (previous entry) rather than
+just `config.defaultIgnoreList`, since both now exist. `ignore.lua` was
+renamed to `rules.lua` (its whole purpose changed from a flat allow-list to
+this match/action rule engine, so the old name would've stayed actively
+misleading) but kept its public method names (`isEnabled`, `toggle`,
+`enabledList`) unchanged, so `watcher.lua`/`autotrack.lua`/`blocklist.lua`
+only needed the module reference renamed, not their call sites rewritten.
+
+What differs from the spec:
+
+- **`shift+i` was already taken** by the block-list toggle (previous entry),
+  so the richer capture bound to **`shift+g`** instead (mnemonic: `g` is
+  manual "add to workspace"; `shift+g` is "add as a standing rule").
+- **Migration** used duck-typing (`type(entry) == "string"` → legacy), the
+  simpler of the spec's two options — no version envelope needed. Verified
+  against this machine's real `autotrack.json` (still in the old flat
+  format) — reloaded clean, no errors, file untouched until the next actual
+  toggle/capture (`persist()` only runs on mutation, not on load).
+- **Hiding a window added to a non-active workspace** uses a plain
+  `win:minimize()`, not the animated slide/park path `workspace.lua`'s
+  `hide()` and `untracked.lua`'s `parkWindow` both use. Building a third
+  copy of that animated logic wasn't worth it for this one case — see the
+  animation/park-dedup entry above, which this should route through once
+  that consolidation happens.
+- **`i`'s exact toggle semantics**: since a captured (`shift+g`) rule and a
+  plain `i` rule can now coexist for the same bundleID, `i` had to mean
+  something specific: it's a blunt "is this app tracked *at all*" switch —
+  off removes *every* rule for that app (simple or captured), on adds back
+  just the simple one. Not spelled out in the original spec, which predates
+  `shift+g` existing as a separate action.
+- No menu-bar UI for capturing/listing/deleting individual rules — out of
+  scope for this pass, same reasoning as layouts' `t`-parity call above.
+  `rules.lua`'s `M.rules()` (read-only list) is there for a future one.
+
+All verified in an isolated Lua sandbox (no real apps touched): legacy
+migration, toggle on/off, `addRule` with `prepend` (confirmed a captured
+rule lands before an existing simple rule for the same bundleID — the
+first-match-wins ordering the spec calls for), and both the default-ignore
+and block-list refusals.
+
+<details>
+<summary>Original spec</summary>
 
 Auto-track today is binary per app: `ignore.lua` holds a flat
 `bundleID -> true` set (persisted as a plain list in `autotrack.json`), and
@@ -384,6 +428,8 @@ Key edge cases:
   does now).
 - First-match-wins ordering; document it, and let the `shift+i` capture
   prepend (more specific rules first).
+
+</details>
 
 ---
 

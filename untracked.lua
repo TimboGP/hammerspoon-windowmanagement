@@ -18,8 +18,9 @@ end
 -- panel/popover/etc, per hs.window:isStandard()) and its app isn't on the
 -- default ignore list (Hammerspoon itself, System Prefs, Spotlight, etc -
 -- see config.lua) or the user's own persisted block-list (blocklist.lua) -
--- mirrors the filters ignore.lua uses for auto-track eligibility, so this
--- view and that toggle agree on what counts as a window.
+-- mirrors the filters rules.lua/blocklist.lua use for auto-track
+-- eligibility, so this view and those toggles agree on what counts as a
+-- window.
 local function isTrackable(win)
   if not win:isStandard() then return false end
   local app = win:application()

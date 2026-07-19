@@ -20,6 +20,7 @@ function M.start(config, callbacks)
     { key = "t", description = "tile" },
     { key = "l", description = "apply named layout to active workspace" },
     { key = "g", description = "workspace membership toggle (add/remove)" },
+    { key = "shift+g", description = "capture auto-track rule (focused app -> this workspace/zone)" },
     { key = "a", description = "pull focused window into current workspace" },
     { key = "1-9", description = "switch to workspace slot" },
     { key = "p", description = "workspace picker" },
