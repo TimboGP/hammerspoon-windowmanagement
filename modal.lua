@@ -28,6 +28,7 @@ function M.start(config, callbacks)
     { key = "x", description = "swap windows" },
     { key = "s", description = "save/load/delete workspace" },
     { key = "i", description = "autotrack toggle" },
+    { key = "shift+i", description = "block-list toggle (focused app)" },
     { key = "v", description = "reveal window" },
     { key = "f", description = "focus" },
     { key = "c", description = "center/close" },

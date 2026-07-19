@@ -5,6 +5,7 @@ local workspaces = nil
 local hideConfig = nil     -- config.virtualDisplay, or nil
 local virtualDisplay = nil -- virtualdisplay module, or nil
 local windowanim = nil     -- windowanim module, or nil
+local blocklist = nil      -- blocklist module, or nil
 
 local function isDefaultIgnored(bundleID)
   for _, id in ipairs(config.defaultIgnoreList) do
@@ -16,13 +17,17 @@ end
 -- A window counts as trackable if it's a normal, visible app window (not a
 -- panel/popover/etc, per hs.window:isStandard()) and its app isn't on the
 -- default ignore list (Hammerspoon itself, System Prefs, Spotlight, etc -
--- see config.lua) - mirrors the filter ignore.lua uses for auto-track
--- eligibility, so this view and that toggle agree on what counts as a window.
+-- see config.lua) or the user's own persisted block-list (blocklist.lua) -
+-- mirrors the filters ignore.lua uses for auto-track eligibility, so this
+-- view and that toggle agree on what counts as a window.
 local function isTrackable(win)
   if not win:isStandard() then return false end
   local app = win:application()
   if not app then return false end
-  return not isDefaultIgnored(app:bundleID())
+  local bundleID = app:bundleID()
+  if isDefaultIgnored(bundleID) then return false end
+  if blocklist and blocklist.isBlocked(bundleID) then return false end
+  return true
 end
 
 -- Finds which registered workspace (if any) currently owns this window, by
@@ -151,6 +156,12 @@ local function pullFocusedIntoPlayground()
     hs.alert.show("WM: no focused window", 1)
     return
   end
+  local app = win:application()
+  local bundleID = app and app:bundleID()
+  if blocklist and bundleID and blocklist.isBlocked(bundleID) then
+    hs.alert.show("WM: " .. (app:name() or bundleID) .. " is blocked", 1.5)
+    return
+  end
   local pg = workspaces.get(workspaces.DEFAULT_WORKSPACE)
   if not pg then
     hs.alert.show("WM: no Playground workspace", 1)
@@ -161,12 +172,13 @@ local function pullFocusedIntoPlayground()
   hs.alert.show("WM: pulled into '" .. pg.name .. "', switched", 1)
 end
 
-function M.start(cfg, leaderModal, workspacesModule, virtualDisplayModule, windowanimModule)
+function M.start(cfg, leaderModal, workspacesModule, virtualDisplayModule, windowanimModule, blocklistModule)
   config = cfg
   workspaces = workspacesModule
   hideConfig = cfg.virtualDisplay
   virtualDisplay = virtualDisplayModule
   windowanim = windowanimModule
+  blocklist = blocklistModule
 
   leaderModal:bind({}, "u", nil, function()
     leaderModal:exit()

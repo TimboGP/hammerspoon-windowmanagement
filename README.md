@@ -160,6 +160,14 @@ Accessibility).
   auto-tracked. The list persists to
   `~/.hammerspoon/window-mgmt/autotrack.json`. Manual `g` `a`/`g` `r`
   remains the default for everything else.
+- Block-list (`shift+i` from the leader modal): toggles whether the focused
+  window's app is excluded everywhere — the untracked chooser (`u`),
+  `shift+p`, top-level `a`/`g` `a`, and auto-track (`i`, which refuses to
+  enable a blocked app) all skip it. Unlike the default ignore list, this one
+  is user-editable at runtime rather than baked into `config.lua`, for apps
+  you personally never want to see in a workspace. Blocking an app that's
+  currently auto-track-enabled also disables auto-track for it. Persists to
+  `~/.hammerspoon/window-mgmt/blocklist.json`.
 - Reveal (`v` from the leader modal): briefly flashes a bright border
   around every window in the current workspace, to see at a glance what's
   in it without needing to hunt for overlapping windows.
@@ -384,6 +392,7 @@ memorize it up front.
 | `s` → `w`/`a`/`l`/`shift+l` | Save workspace / save arrangement / load workspace / load arrangement |
 | `s` → `d`/`shift+d` | Delete a saved workspace / saved arrangement (with confirmation) |
 | `i` | Toggle auto-track for the focused window's app |
+| `shift+i` | Toggle the block-list for the focused window's app (excluded everywhere) |
 | `v` | Reveal: flash borders of every window in the active workspace |
 | `f`/`c` | Toggle fullscreen/centered focus mode for the focused window |
 | `w` | List active workspace's windows; `enter`/`⌘enter`/`⌥enter` focuses/removes/pulls-out-center the picked one |

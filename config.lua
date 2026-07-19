@@ -23,6 +23,7 @@ return {
   workspacesDir = home .. "/.hammerspoon/window-mgmt/workspaces",
   arrangementsDir = home .. "/.hammerspoon/window-mgmt/arrangements",
   autoTrackFile = home .. "/.hammerspoon/window-mgmt/autotrack.json",
+  blockListFile = home .. "/.hammerspoon/window-mgmt/blocklist.json",
 
   defaultIgnoreList = {
     "com.apple.Hammerspoon",

@@ -1,6 +1,7 @@
 local M = {}
 
 local config = nil
+local blocklist = nil -- blocklist module, or nil
 local enabled = {} -- bundleID -> true, apps opted into auto-track
 
 local function isDefaultIgnored(bundleID)
@@ -12,8 +13,9 @@ local function isDefaultIgnored(bundleID)
   return false
 end
 
-function M.start(cfg)
+function M.start(cfg, blocklistModule)
   config = cfg
+  blocklist = blocklistModule
   if hs.fs.attributes(config.autoTrackFile) then
     local data = hs.json.read(config.autoTrackFile)
     if data then
@@ -39,10 +41,15 @@ end
 
 -- Returns (nowEnabled, error). Refuses to auto-track apps on the default
 -- ignore list (Hammerspoon itself, system UI, etc.) - toggling those would
--- be actively harmful, not just pointless.
+-- be actively harmful, not just pointless - or apps on the user's own
+-- persisted block-list (blocklist.lua), which exists specifically to keep
+-- an app out of auto-track (among other places) without a config-file edit.
 function M.toggle(bundleID)
   if isDefaultIgnored(bundleID) then
     return false, "this app is never auto-trackable"
+  end
+  if blocklist and blocklist.isBlocked(bundleID) then
+    return false, "this app is blocked - unblock it first (shift+i)"
   end
   if enabled[bundleID] then
     enabled[bundleID] = nil

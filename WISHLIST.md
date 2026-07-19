@@ -127,33 +127,38 @@ via the menu?
 
 ---
 
-## Persisted ignore list (block by bundle ID)
+## ✅ Persisted ignore list (block by bundle ID) — IMPLEMENTED
 
-Discussed 2026-07-18. Today there are two related-but-different lists, and
-neither is what's being asked for here:
+Discussed 2026-07-18, implemented 2026-07-19. Built as sketched: new
+`blocklist.lua`, same `bundleID -> true` set shape and
+`hs.json.read`/`hs.json.write` persistence pattern as `ignore.lua`, against
+a new `config.blockListFile`. `shift+i` toggles the focused window's app
+(mirroring `autotrack.toggleFocusedApp`'s `i`), refusing apps already on
+`config.defaultIgnoreList` (redundant — those are excluded regardless).
 
-- `config.defaultIgnoreList` (`config.lua`) is a hardcoded block-list (Hammerspoon
-  itself, system UI, etc.) — editing it means editing the config file and
-  reloading.
-- `ignore.lua` (despite the name) is an *allow*-list: `autotrack.lua`'s `i`
-  hotkey opts an app *into* auto-tracking; `enabled[bundleID] = true`,
-  persisted to `config.autoTrackFile`.
+Wired into every place a window gets pulled in or auto-tracked:
 
-What's missing is a user-editable, persisted *block*-list — apps that should
-never be pulled into a workspace or offered anywhere (untracked chooser,
-auto-track, the new pull/playground shortcuts below), without a config-file
-edit + reload. `ignore.lua` is the template to clone: same
-`bundleID -> true` set shape, same `hs.json.read`/`hs.json.write` persistence
-pattern, just a second file (e.g. `config.blockListFile`) and a second
-in-memory set.
+- `untracked.lua`'s `isTrackable` now also consults `blocklist.isBlocked`, so
+  a blocked app never appears in the `u` chooser, `parkAllUntracked`, or (its
+  own direct focused-window check) `shift+p`.
+- `membership.lua`'s `addFocusedToCurrent` (shared by `g` → `a` and
+  top-level `a`) refuses a blocked app's window with an alert.
+- `ignore.lua`'s `M.toggle` (the `i` auto-track allow-list) now refuses
+  enabling auto-track for a blocked bundleID — "this app is blocked - unblock
+  it first (shift+i)".
+- Blocking an app that's *currently* auto-track-enabled also force-disables
+  auto-track for it and calls `watcher.refresh()`, so a stale allow-list
+  entry can't keep tracking new windows of an app that's supposed to be
+  blocked everywhere (`watcher.lua`'s filter itself didn't need touching —
+  it's already scoped to `ignore.enabledList()`, so forcing that list clean
+  is the correct fix rather than adding a second veto to `rebuildFilter`).
 
-Wiring: `untracked.lua`'s `isTrackable` and `watcher.lua`'s trackable check
-both currently only consult `config.defaultIgnoreList` — both need to also
-consult the new persisted block-list. A toggle hotkey mirroring
-`autotrack.toggleFocusedApp` (add/remove the focused window's app from the
-block-list) is the natural UI; refuse toggling apps already on
-`config.defaultIgnoreList` off the block-list (same refusal `ignore.toggle`
-already does for the opposite case), since those are non-negotiable.
+Not done: `watcher.lua`'s window filter isn't itself block-list-aware beyond
+the force-disable above — there was no need, since the filter only ever
+watches apps already on the allow-list, and the allow-list can no longer
+contain a blocked app. `M.blockedList()` (enumeration) exists for parity
+with `ignore.enabledList()` but nothing consumes it yet — a future menu-bar
+listing or the rule engine (#2 below) are the likely first callers.
 
 ---
 
