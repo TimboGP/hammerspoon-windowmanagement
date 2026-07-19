@@ -92,6 +92,10 @@ Accessibility).
   workspace, minimizes it, and leaves a labeled placeholder canvas in its
   zone. To restore a removed window: unminimize/focus it again (Dock click,
   Cmd+Tab, or Mission Control), then `g` `a` to re-add it to the same slot.
+  A window can belong to multiple workspaces at once — `a` never removes it
+  from anywhere else it's already a member. Top-level `a` (no `g` first) is
+  a shortcut for the same add action, and top-level `shift+p` adds the
+  focused window to Playground and switches there in one step.
 - Workspace switching (from the leader modal): `1`-`9` switch to that slot,
   creating an empty "Workspace N" the first time a slot is used. `p` opens
   a picker (fuzzy-searchable) listing every workspace created so far. `n`
@@ -357,8 +361,10 @@ memorize it up front.
 |---|---|
 | `t` → preset/`g` | Tile focused window (halves/thirds/quarters/full/custom) |
 | `g` → `a`/`r` | Add/remove focused window to/from the active workspace |
+| `a` | Shortcut: add focused window to the active workspace (same as `g` → `a`) |
 | `1`-`9` | Switch to workspace slot (creating an empty one if unused) |
 | `p` | Picker: switch to any known workspace by name |
+| `shift+p` | Add focused window to Playground and switch to it |
 | `n` | Create a new named workspace |
 | `x` → letter/arrow | Swap focused window with another (hint labels or directional) |
 | `s` → `w`/`a`/`l`/`shift+l` | Save workspace / save arrangement / load workspace / load arrangement |
@@ -368,7 +374,7 @@ memorize it up front.
 | `f`/`c` | Toggle fullscreen/centered focus mode for the focused window |
 | `w` | List active workspace's windows; `enter`/`⌘enter`/`⌥enter` focuses/removes/pulls-out-center the picked one |
 | `tab`/`shift+tab` | Cycle focus forward/backward through the active workspace's windows |
-| `u` | Chooser: pull an untracked/other-workspace window into the active workspace |
+| `u` | Chooser: add an untracked/other-workspace window to the active workspace (keeps its other memberships) |
 | `shift+u` | Park every untracked/other-workspace window (virtualDisplay park if enabled, else minimize) |
 | `j` | Wiggle the focused window (works even while tiled) |
 | `r` | Bring back any parked windows (experimental virtualDisplay strategy only) |

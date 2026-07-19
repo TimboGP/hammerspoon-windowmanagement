@@ -145,51 +145,34 @@ already does for the opposite case), since those are non-negotiable.
 
 ---
 
-## Two new shortcuts: playground handoff and ownership-aware pull
+## ✅ Two new shortcuts: playground handoff and multi-membership pull — IMPLEMENTED
 
-Discussed 2026-07-18, alongside the block-list above. Both build on the
-always-present `Playground` workspace (`workspaces.lua`'s
-`M.DEFAULT_WORKSPACE`, from the "no implicit no-workspace state" change) and
-on a gap in how membership moves windows between workspaces today:
+Discussed 2026-07-18, implemented 2026-07-19. Corrected design, per explicit
+direction: a window is allowed to belong to multiple workspaces at once —
+so neither shortcut evicts a window from wherever else it's already a
+member. That also meant `untracked.lua`'s `pullIntoCurrent` (behind the `u`
+chooser), which *did* call `owner:removeWindow()` before adding to the
+current workspace, was fixed to drop that eviction — it now just adds,
+matching README's existing "pull" description of that binding.
 
-- `membership.lua`'s `a` (add focused window) just calls
-  `ws:addWindow(win)` — it does **not** check whether the window is already
-  owned by a different workspace, so pressing `a` on a window that's a
-  member elsewhere leaves it double-registered (in both workspaces' `slots`).
-- `untracked.lua`'s `pullIntoCurrent` (used by the `u` chooser and,
-  implicitly, `parkAllUntracked`) already gets this right: it looks up the
-  current owner via `ownerOf(win)` and calls `owner:removeWindow(choice.window)`
-  *before* `cur:addWindow(choice.window)` — but only reachable through the
-  chooser, not as a direct single-key action on the focused window.
+1. **Top-level `shift+p`** (`untracked.lua`'s new `pullFocusedIntoPlayground`):
+   adds the focused window to `Playground` (`workspaces.DEFAULT_WORKSPACE`)
+   and calls `workspaces.switchTo("Playground")`, landing you there
+   immediately. A quick "pop this into my scratch space and go look at it"
+   action, as opposed to `u`/`shift+u` which only ever move windows *out of*
+   the current workspace.
 
-Both new shortcuts should reuse that ownership-aware pull logic (promote it
-out of `untracked.lua`'s local `pullIntoCurrent`, parameterized by target
-workspace, rather than duplicating the remove-then-add dance) rather than
-building on membership's plain `addWindow`:
+2. **Top-level `a`** (`membership.lua`'s new `addFocusedToCurrent`, shared
+   between this binding and the existing `g` → `a` sub-modal action): adds
+   the focused window to `workspaces.current()`, skipping the sub-modal for
+   the common case. Since `addWindow`/`removeWindow` already flip `dirty` via
+   `workspace.lua`'s `setDirty`, the menu bar's dirty dot (`\u{25cf}`)
+   reflects the change with no extra plumbing.
 
-1. **Pull up window and enable Playground.** One key on the focused window:
-   ownership-aware-pull it into `Playground` (removing it from whatever
-   workspace currently owns it, if any), then `workspaces.switchTo("Playground")`
-   so you land there immediately. A quick "pop this into my scratch space and
-   go look at it" action, as opposed to today's `u`/`shift+u` which only ever
-   move windows *out of* the current workspace.
-
-2. **Pull window into current workspace.** One key on the focused window:
-   ownership-aware-pull it into `workspaces.current()` — i.e. `membership.lua`'s
-   `a`, but fixed to remove it from its prior owner (including `Playground`)
-   first, so a window never ends up silently registered in two workspaces at
-   once. `addWindow`/`removeWindow` already flip `dirty` on both the losing
-   and gaining workspace (`workspace.lua`'s `setDirty`), so the menu bar's
-   dirty dot (`\u{25cf}`) should correctly reflect both sides of the move
-   without extra plumbing — worth confirming in testing, since today's `a`
-   only ever touches one workspace at a time and this is a two-workspace
-   mutation.
-
-Open question: should this replace `membership.lua`'s `a`, or coexist as a
-separate binding? Silently changing `a`'s behavior to also steal membership
-from other workspaces could surprise existing muscle memory; a separate key
-is the safer default unless the double-registration bug above is judged bad
-enough to warrant fixing `a` in place.
+Not done as part of this: consolidating the still-somewhat-duplicated
+"resolve target workspace, add window, alert" shape between the two new
+functions and `untracked.lua`'s `pullIntoCurrent` — three near-identical
+three-liners. Small enough to leave alone unless a fourth caller shows up.
 
 ---
 

@@ -19,8 +19,10 @@ function M.start(config, callbacks)
   local bindings = {
     { key = "t", description = "tile" },
     { key = "g", description = "workspace membership toggle (add/remove)" },
+    { key = "a", description = "pull focused window into current workspace" },
     { key = "1-9", description = "switch to workspace slot" },
     { key = "p", description = "workspace picker" },
+    { key = "shift+p", description = "pull focused window into Playground + switch" },
     { key = "n", description = "new workspace" },
     { key = "x", description = "swap windows" },
     { key = "s", description = "save/load/delete workspace" },

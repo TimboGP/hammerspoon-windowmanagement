@@ -55,17 +55,15 @@ local function untrackedEntries()
   return entries
 end
 
--- Moves the window into the current workspace, first removing it from
--- whichever other workspace owns it (if any) so it isn't left registered
--- in two places at once.
+-- Adds the window to the current workspace. A window can belong to multiple
+-- workspaces at once by design (see WISHLIST.md), so this leaves whichever
+-- other workspace owns it (if any, per choice.owner) untouched - addWindow
+-- is already a no-op if it's already a member here.
 local function pullIntoCurrent(choice)
   local cur = workspaces.current()
   if not cur then
     hs.alert.show("WM: no active workspace", 1)
     return
-  end
-  if choice.owner then
-    choice.owner:removeWindow(choice.window)
   end
   cur:addWindow(choice.window)
   hs.alert.show("WM: pulled into workspace '" .. cur.name .. "'", 1)
@@ -143,6 +141,26 @@ local function parkAllUntracked()
   hs.alert.show("WM: parked " .. #entries .. " off-workspace window(s)", 1.5)
 end
 
+-- Adds the focused window to Playground (workspaces.DEFAULT_WORKSPACE) and
+-- switches to it - a quick "pop this into my scratch workspace and go look
+-- at it" action. Multi-membership-safe: doesn't remove the window from
+-- wherever it already lives (see pullIntoCurrent above).
+local function pullFocusedIntoPlayground()
+  local win = hs.window.focusedWindow()
+  if not win then
+    hs.alert.show("WM: no focused window", 1)
+    return
+  end
+  local pg = workspaces.get(workspaces.DEFAULT_WORKSPACE)
+  if not pg then
+    hs.alert.show("WM: no Playground workspace", 1)
+    return
+  end
+  pg:addWindow(win)
+  workspaces.switchTo(workspaces.DEFAULT_WORKSPACE)
+  hs.alert.show("WM: pulled into '" .. pg.name .. "', switched", 1)
+end
+
 function M.start(cfg, leaderModal, workspacesModule, virtualDisplayModule, windowanimModule)
   config = cfg
   workspaces = workspacesModule
@@ -158,6 +176,11 @@ function M.start(cfg, leaderModal, workspacesModule, virtualDisplayModule, windo
   leaderModal:bind({ "shift" }, "u", nil, function()
     leaderModal:exit()
     parkAllUntracked()
+  end)
+
+  leaderModal:bind({ "shift" }, "p", nil, function()
+    leaderModal:exit()
+    pullFocusedIntoPlayground()
   end)
 
   return M

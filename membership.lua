@@ -1,5 +1,22 @@
 local M = {}
 
+-- Adds the focused window to the current workspace. A window can belong to
+-- multiple workspaces at once by design (see WISHLIST.md) - addWindow is
+-- already a no-op if it's already a member here, and this never touches any
+-- other workspace the window happens to also belong to.
+local function addFocusedToCurrent(workspaces)
+  local win = hs.window.focusedWindow()
+  local ws = workspaces.current()
+  if not win then
+    hs.alert.show("WM: no focused window", 1)
+  elseif not ws then
+    hs.alert.show("WM: no active workspace (press a number key first)", 1)
+  else
+    ws:addWindow(win)
+    hs.alert.show("WM: added to workspace '" .. ws.name .. "'", 1)
+  end
+end
+
 function M.start(config, leaderModal, workspaces)
   local membershipModal = hs.hotkey.modal.new()
 
@@ -8,16 +25,7 @@ function M.start(config, leaderModal, workspaces)
   end
 
   membershipModal:bind({}, "a", nil, function()
-    local win = hs.window.focusedWindow()
-    local ws = workspaces.current()
-    if not win then
-      hs.alert.show("WM: no focused window", 1)
-    elseif not ws then
-      hs.alert.show("WM: no active workspace (press a number key first)", 1)
-    else
-      ws:addWindow(win)
-      hs.alert.show("WM: added to workspace '" .. ws.name .. "'", 1)
-    end
+    addFocusedToCurrent(workspaces)
     membershipModal:exit()
   end)
 
@@ -41,6 +49,13 @@ function M.start(config, leaderModal, workspaces)
   leaderModal:bind({}, "g", nil, function()
     leaderModal:exit()
     membershipModal:enter()
+  end)
+
+  -- Top-level shortcut for the same action as `g a`, skipping the sub-modal
+  -- for the common case of "just pull this window into my current workspace".
+  leaderModal:bind({}, "a", nil, function()
+    leaderModal:exit()
+    addFocusedToCurrent(workspaces)
   end)
 
   M.membershipModal = membershipModal
