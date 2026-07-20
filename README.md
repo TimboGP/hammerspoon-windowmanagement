@@ -80,6 +80,14 @@ Accessibility).
 - Escape hatch: `cmd+ctrl+alt+shift+esc`, always live (works even outside
   the modal). Force-exits a stuck modal — useful if `hs.reload()` fires
   while the modal was active.
+- Emergency restore: `cmd+ctrl+alt+shift+r`, always live and independent of
+  workspaces/tiling entirely (also in the menu bar as "Emergency Restore All
+  Windows") — a panic button for when windows have gotten visually lost.
+  Disables window management first (same as the pause hotkey below, so
+  nothing fights what follows), then unhides every hidden app, unminimizes
+  every minimized window, and moves *every* window on the system — tracked
+  or not — onto the main display at a fixed 1280x720, cascaded out from the
+  screen's center so each one is still reachable.
 - Tiling (`t` from the leader modal): `h`/`l`/`k`/`j` for left/right/top/
   bottom half, `1`/`2`/`3` for left/center/right third, `4`/`5` for left/
   right two-thirds, `y`/`u`/`b`/`n` for TL/TR/BL/BR quarters, `f` for full
@@ -415,3 +423,4 @@ memorize it up front.
 | `esc` (in any sub-mode) | Cancel back out |
 | `cmd+ctrl+alt+shift+esc` | Escape hatch: force-reset a stuck modal, always live |
 | `cmd+ctrl+alt+shift+space` | Toggle the whole tool on/off, always live (see "Disabling the tool") |
+| `cmd+ctrl+alt+shift+r` | Emergency restore: unhide/unminimize/reset every window on the system, always live |

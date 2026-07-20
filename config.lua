@@ -7,6 +7,7 @@ return {
   -- modal.lua / init.lua's obj:start().
   escapeHatch = { { "cmd", "ctrl", "alt", "shift" }, "escape" },
   pauseHotkey = { { "cmd", "ctrl", "alt", "shift" }, "space" },
+  emergencyRestoreHotkey = { { "cmd", "ctrl", "alt", "shift" }, "r" },
 
   grid = { cols = 12, rows = 12 },
 

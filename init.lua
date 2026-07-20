@@ -43,6 +43,7 @@ local virtualdisplay = dofile(obj.spoonPath .. "virtualdisplay.lua")
 local pause = dofile(obj.spoonPath .. "pause.lua")
 local wiggle = dofile(obj.spoonPath .. "wiggle.lua")
 local windowanim = dofile(obj.spoonPath .. "windowanim.lua")
+local emergency = dofile(obj.spoonPath .. "emergency.lua")
 
 -- Vendored as a git submodule (vendor/AnimFX.spoon) rather than a second
 -- hs.loadSpoon in the user's own init.lua, to keep this Spoon's "one clone"
@@ -167,6 +168,8 @@ function obj:start()
       watcher.refresh()
     end,
   })
+
+  emergency.start(self.config, pause)
 
   matcher.start(self.config)
   -- The last param records "the workspace/arrangement you're now in" so it can
@@ -426,6 +429,11 @@ function obj:start()
     if self.config.virtualDisplay.enabled then
       table.insert(items, item("Bring Back Parked Windows", "leader r", { fn = workspaces.restoreAllParked }))
     end
+
+    table.insert(items, sep())
+    table.insert(items, item("Emergency Restore All Windows", "\u{2318}\u{2303}\u{2325}\u{21e7}R", {
+      fn = function() emergency.restoreAll(pause) end,
+    }))
 
     table.insert(items, sep())
     table.insert(items, { title = "Reload Config", fn = function() hs.reload() end })

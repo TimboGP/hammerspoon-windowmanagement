@@ -6,6 +6,38 @@ design.
 
 ---
 
+## ✅ Emergency restore — IMPLEMENTED
+
+Requested and implemented 2026-07-19: a stronger, system-wide version of
+"bring back parked windows" - a panic button for when windows have gotten
+visually lost, independent of workspaces/tiling entirely. New
+`emergency.lua`, bound to the always-live `cmd+ctrl+alt+shift+r`
+(`config.emergencyRestoreHotkey`, same "works even if something else is
+stuck" family as `escapeHatch`/`pauseHotkey` in `modal.lua`/`pause.lua`) and
+mirrored as a menu bar item.
+
+Sequence: `pause.setEnabled(false)` first (stops resettle watchers, cancels
+in-flight slides, un-parks anything on the virtual display - see
+`pause.lua`'s `onDisabled`), so nothing fights what follows. Then unhides
+every hidden app (`hs.application.runningApplications()`,
+`app:unhide()`), unminimizes every minimized window, waits
+`UNMINIMIZE_ANIMATION_DELAY` (0.35s, matching `workspace.lua`'s constant of
+the same name/value - `setFrame()` right after `unminimize()` is known to
+get silently dropped before the Dock's genie animation settles), then moves
+*every* window on the system (`hs.window.allWindows()`, unfiltered - not
+scoped to tracked windows, since the point is recovering from a mess, not
+respecting membership) onto the main display at a fixed 1280x720, cascaded
+30px per window out from the screen's center (wrapping back toward center
+once a window's offset would run off-screen, rather than escaping the
+visible area).
+
+Design choices confirmed with the user rather than assumed: fixed 1280x720
+per window (not aspect-ratio-preserving), a cascade offset (not exact
+overlap), and no filtering by `hs.window:isStandard()` or the ignore/block
+lists (literally every window, panic-button scope).
+
+---
+
 ## ✅ Auto-load on start — IMPLEMENTED (as auto-load-*last-used*, populate-only)
 
 Implemented 2026-07-10, revised 2026-07-19. Rather than the
