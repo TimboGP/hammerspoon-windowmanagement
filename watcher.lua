@@ -4,6 +4,7 @@ local rules = nil
 local workspaces = nil
 local grid = nil
 local layouts = nil
+local pause = nil
 local filter = nil
 
 -- Finds the first rule (first-match-wins) whose match fires for this window:
@@ -94,12 +95,21 @@ local function rebuildFilter()
   end)
 end
 
-function M.start(config, rulesModule, workspacesModule, gridLib, layoutsModule)
+-- pauseModule is optional; when given and already disabled at start time
+-- (a persisted pause restored before this runs - see pause.lua/init.lua),
+-- the filter is deliberately left unbuilt rather than immediately watching
+-- for new windows, matching the "paused = hands off entirely" contract.
+-- pause.lua's onEnabled callback already calls M.refresh() to build it the
+-- moment the tool is re-enabled.
+function M.start(config, rulesModule, workspacesModule, gridLib, layoutsModule, pauseModule)
   rules = rulesModule
   workspaces = workspacesModule
   grid = gridLib
   layouts = layoutsModule
-  rebuildFilter()
+  pause = pauseModule
+  if not pause or pause.isEnabled() then
+    rebuildFilter()
+  end
 end
 
 -- Called after rules.toggle()/rules.addRule() change the rule set, since

@@ -263,6 +263,12 @@ retroactively re-tile whatever's currently on screen, so nothing jumps the
 moment you turn it back on; the next real tile/swap/workspace-switch
 re-arms enforcement for whatever windows it touches.
 
+The enabled/disabled state persists across a reload (or Hammerspoon
+restart) — if you disabled it, a `hs.reload()` won't quietly turn it back
+on. While disabled, the menu bar title renders dimmed (a muted gray instead
+of the normal color) so you can tell the state at a glance without opening
+the menu.
+
 ## Troubleshooting
 
 If the leader key alert appears but subsequent keys (`t`, `h`, etc.) don't

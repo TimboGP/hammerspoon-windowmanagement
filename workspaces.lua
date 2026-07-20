@@ -120,17 +120,20 @@ function M.get(name)
 end
 
 -- Single place that pushes the current workspace's name/dirty state to the
--- menu bar - called on activate/rename and whenever any workspace's dirty
--- flag flips, so the title is always recomputed from live state rather than
--- patched incrementally in multiple call sites.
+-- menu bar - called on activate/rename, whenever any workspace's dirty flag
+-- flips, and on pause.lua enable/disable (see init.lua), so the title is
+-- always recomputed from live state rather than patched incrementally in
+-- multiple call sites. Dimmed whenever paused, so the menu bar visibly
+-- reflects the "hands off entirely" state at a glance.
 function M.refreshStatus()
   if not menubar then return end
+  local dimmed = pause and pause.isPaused()
   local cur = M.current()
   if not cur then
-    menubar.setStatus("no workspace")
+    menubar.setStatus("no workspace", dimmed)
     return
   end
-  menubar.setStatus(cur.name .. (cur.dirty and " \u{25cf}" or ""))
+  menubar.setStatus(cur.name .. (cur.dirty and " \u{25cf}" or ""), dimmed)
 end
 
 -- Hides the current workspace, if any, without changing which one is

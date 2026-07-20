@@ -6,6 +6,55 @@ design.
 
 ---
 
+## ✅ Persisted pause state + dimmed menu bar when disabled — IMPLEMENTED
+
+Requested and implemented 2026-07-20, alongside emergency restore. Two
+related fixes to `pause.lua`'s global on/off switch:
+
+- **Persistence**: `pause.lua`'s `enabled` used to always boot `true`,
+  hardcoded - a reload silently re-enabled the tool even if you'd
+  deliberately disabled it. `M.start` now takes an `initialEnabled` param;
+  `init.lua` reads/writes it as `savedSettings.managementEnabled` (same
+  `persistence.saveSettings` pattern as `badgesEnabled`/
+  `virtualDisplayEnabled`/etc.), via a new `callbacks.onChange(enabled)`
+  hook fired from `M.setEnabled` alongside the existing `onEnabled`/
+  `onDisabled`. One follow-on correctness fix this exposed: `watcher.lua`
+  unconditionally built its rule-matching `hs.window.filter` on `M.start`
+  regardless of pause state - fine before, since boot was always enabled,
+  but wrong once boot could restore a disabled state. `watcher.start` now
+  takes the `pause` module and skips building the filter if already
+  disabled at start time; `pause.lua`'s existing `onEnabled` callback
+  (`watcher.refresh()`) already covers building it whenever re-enabled
+  later, so no new hook was needed there.
+- **Dimmed menu bar indicator**: `menubar.setStatus(text, dimmed)` renders
+  the title via `hs.styledtext` with a muted gray color when `dimmed`;
+  `workspaces.refreshStatus()` (the single chokepoint that already
+  recomputes the title) passes `pause.isPaused()` as that flag, and
+  `init.lua`'s new `onChange` hook calls `refreshStatus()` immediately on
+  toggle so the color updates without waiting for an unrelated
+  workspace/dirty change. A second explicit `refreshStatus()` call was
+  needed right after `pause.start()` in `init.lua`, since
+  `workspaces.start()` (which calls it once internally on boot) runs
+  *before* `pause.start()` applies the restored `initialEnabled` - without
+  that, a reload landing in a disabled state would show un-dimmed until
+  the next incidental status refresh.
+
+Dimming the actual menu bar **icon** (rather than just the title text) was
+tried first and abandoned: several `hs.canvas`-based techniques
+(`canvas:alpha()`, a nested `canvas` element's `canvasAlpha`, a
+`destinationIn`-composited translucent overlay) were all tested by
+rendering to a real image and visually comparing against white/black
+backdrops - none actually reduced the rasterized image's effective opacity
+through `imageFromCanvas()` in this Hammerspoon version; the result was
+always fully-opaque-where-drawn or fully-transparent, never partial. The
+title-text color approach was verified instead by spinning up a real,
+visible menu bar item side-by-side with the live one and confirming the
+dimmed color reads as clearly muted. If icon dimming is revisited, start by
+checking whether a newer Hammerspoon build handles canvas alpha differently
+before re-attempting the same techniques.
+
+---
+
 ## ✅ Emergency restore — IMPLEMENTED
 
 Requested and implemented 2026-07-19: a stronger, system-wide version of

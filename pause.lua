@@ -16,14 +16,22 @@ function M.isPaused()
   return not enabled
 end
 
-function M.start(config, callbacks)
+-- initialEnabled restores whatever was persisted at the end of the previous
+-- session (see init.lua's savedSettings.managementEnabled), so a reload
+-- doesn't silently re-enable a tool someone deliberately paused - defaults
+-- to true (today's boot-enabled behavior) for a fresh install / nil.
+function M.start(config, callbacks, initialEnabled)
   callbacks = callbacks or {}
+  if initialEnabled ~= nil then
+    enabled = initialEnabled
+  end
 
   function M.setEnabled(newEnabled)
     if newEnabled == enabled then
       return
     end
     enabled = newEnabled
+    if callbacks.onChange then callbacks.onChange(enabled) end
     if enabled then
       if callbacks.onEnabled then callbacks.onEnabled() end
       hs.alert.show("WM: enabled", 1.5)

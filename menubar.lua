@@ -21,8 +21,19 @@ function M.stop()
   end
 end
 
-function M.setStatus(text)
-  if item then
+-- A muted gray - confirmed visually (against both light and dark menu bar
+-- backgrounds) to read as clearly dimmed relative to the default title
+-- color, without needing per-pixel icon-alpha tricks (hs.canvas's
+-- imageFromCanvas didn't preserve partial alpha reliably when tried).
+local DIMMED_COLOR = { white = 0.55, alpha = 1.0 }
+
+-- dimmed (optional): renders the title in DIMMED_COLOR instead of the
+-- default color, to visually reflect e.g. pause.lua's disabled state.
+function M.setStatus(text, dimmed)
+  if not item then return end
+  if dimmed then
+    item:setTitle(hs.styledtext.new(text, { color = DIMMED_COLOR }))
+  else
     item:setTitle(text)
   end
 end

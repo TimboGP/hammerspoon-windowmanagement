@@ -167,7 +167,25 @@ function obj:start()
     onEnabled = function()
       watcher.refresh()
     end,
-  })
+    -- Persisted so a reload restores whatever enabled/disabled state was
+    -- last set, rather than always coming back enabled (see pause.lua's
+    -- initialEnabled param and watcher.lua's start-time guard, which skips
+    -- building its filter if this restores straight into disabled). Also
+    -- immediately re-dims/un-dims the menu bar title (workspaces.refreshStatus
+    -- reads pause.isPaused() - see workspaces.lua).
+    onChange = function(enabled)
+      savedSettings.managementEnabled = enabled
+      persistence.saveSettings(savedSettings)
+      workspaces.refreshStatus()
+    end,
+  }, savedSettings.managementEnabled)
+
+  -- workspaces.start() (above) already called refreshStatus() once while
+  -- pause was still at its hardcoded pre-start default (true) - re-run it
+  -- now that pause.start() has applied the persisted initialEnabled, so a
+  -- reload that restores a disabled state shows dimmed immediately rather
+  -- than only on the next workspace/dirty change.
+  workspaces.refreshStatus()
 
   emergency.start(self.config, pause)
 
@@ -185,7 +203,7 @@ function obj:start()
     end)
 
   rules.start(self.config, blocklist)
-  watcher.start(self.config, rules, workspaces, grid, layouts)
+  watcher.start(self.config, rules, workspaces, grid, layouts, pause)
   autotrack.start(self.config, rules, watcher, workspaces, modal.getInstance())
   blocklist.start(self.config, modal.getInstance(), rules, watcher)
 
