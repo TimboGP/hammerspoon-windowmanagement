@@ -53,6 +53,22 @@ dimmed color reads as clearly muted. If icon dimming is revisited, start by
 checking whether a newer Hammerspoon build handles canvas alpha differently
 before re-attempting the same techniques.
 
+**Follow-up fix, same day**: persistence surfaced a second bug - restoring a
+disabled state on boot didn't actually stop *everything*. `init.lua`'s
+`saveload.loadLast(savedSettings.lastLoaded)` call (the auto-load-last-used
+background populate - see the auto-load entry above) ran unconditionally,
+regardless of pause state. Populating a workspace snaps every matched
+window into its saved zone (`populateWorkspaceFromSaved`'s
+`gridLib.snapWindowToZone`) and hides whichever populated workspaces aren't
+the active one (`Workspace:hide()`, which minimizes/parks) - exactly the
+window-moving the disabled state is supposed to prevent. Now gated on
+`pause.isEnabled()`, so a reload while disabled leaves every workspace
+un-populated (only `Playground` registered) until you either re-enable or
+load something manually. Verified live both ways: disabled -> reload ->
+only `Playground` in the "Switch to" menu; re-enabled -> reload -> the
+persisted arrangement's workspaces populate normally, same as before this
+fix.
+
 ---
 
 ## ✅ Emergency restore — IMPLEMENTED

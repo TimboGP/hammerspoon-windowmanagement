@@ -267,7 +267,10 @@ The enabled/disabled state persists across a reload (or Hammerspoon
 restart) — if you disabled it, a `hs.reload()` won't quietly turn it back
 on. While disabled, the menu bar title renders dimmed (a muted gray instead
 of the normal color) so you can tell the state at a glance without opening
-the menu.
+the menu. A reload while disabled also skips the automatic re-load of your
+last-used workspace/arrangement from the previous session
+(`config.autoLoadLast`) — it won't snap or hide any windows until you
+re-enable or load something manually.
 
 ## Troubleshooting
 

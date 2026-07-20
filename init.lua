@@ -472,7 +472,16 @@ function obj:start()
   -- touches (workspaces, matcher, overlay, virtualdisplay) is already started;
   -- the app-launch + window-match work it kicks off is async and won't block
   -- the rest of start() from returning.
-  if self.config.autoLoadLast then
+  --
+  -- Also skipped entirely while pause.lua's restored state is disabled -
+  -- populating a workspace snaps every matched window into its saved zone
+  -- and hides whichever ones aren't the active workspace (see
+  -- populateWorkspaceFromSaved / Workspace:hide() in saveload.lua/
+  -- workspace.lua), which is exactly the kind of window-moving the
+  -- "paused = hands off entirely" contract promises not to do. A later
+  -- manual load (picker, menu bar) still works as normal; this only gates
+  -- the automatic one.
+  if self.config.autoLoadLast and pause.isEnabled() then
     saveload.loadLast(savedSettings.lastLoaded)
   end
 
