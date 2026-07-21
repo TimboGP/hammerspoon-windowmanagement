@@ -282,6 +282,48 @@ function obj:start()
     end
   end
 
+  -- Tears down and recreates the virtual display via the daemon, without
+  -- touching the enabled toggle - useful when the display has gotten into a
+  -- bad state (e.g. wrong resolution/position) but the daemon itself is still
+  -- reachable. Parked windows are brought back first since they'd otherwise
+  -- be stranded mid-destroy; ensureDisplay then recreates it (nothing needs
+  -- re-parking here - restoreAllParked already emptied it).
+  local function restartVirtualDisplay()
+    workspaces.restoreAllParked()
+    virtualdisplay.removeDisplay(function()
+      virtualdisplay.ensureDisplay(function(screen, err)
+        if screen then
+          applyParkingArrangement()
+          hs.alert.show("WM: virtual display restarted", 1.5)
+        else
+          hs.alert.show("WM: virtual display restart failed (" .. tostring(err) .. "); falling back to minimize", 3)
+        end
+      end)
+    end)
+  end
+
+  -- The panic-button counterpart to toggleVirtualDisplay's disable path: that
+  -- one only stops *using* the display (it never destroys it, per the design
+  -- note on virtualdisplay.stop()). This one actually tears the display down
+  -- via the daemon on top of disabling the toggle, for when the display
+  -- itself is misbehaving (or you just want it gone) rather than merely
+  -- unused. Parked windows are restored first, same reasoning as
+  -- restartVirtualDisplay above.
+  local function killAndDeactivateVirtualDisplay()
+    workspaces.restoreAllParked()
+    local vd = self.config.virtualDisplay
+    vd.enabled = false
+    savedSettings.virtualDisplayEnabled = false
+    persistence.saveSettings(savedSettings)
+    virtualdisplay.removeDisplay(function(ok)
+      if ok then
+        hs.alert.show("WM: virtual display killed; hide/show disabled (using minimize)", 2)
+      else
+        hs.alert.show("WM: hide/show disabled, but the display could not be removed (daemon unreachable?)", 3)
+      end
+    end)
+  end
+
   -- Flips the `j` wiggle hotkey on/off. config.wiggle is the same table
   -- reference wiggle.lua captured at start() time, so mutating .enabled here
   -- takes effect immediately, no restart needed (same pattern as
@@ -446,7 +488,9 @@ function obj:start()
     }))
     if self.config.virtualDisplay.enabled then
       table.insert(items, item("Bring Back Parked Windows", "leader r", { fn = workspaces.restoreAllParked }))
+      table.insert(items, item("Restart Virtual Display", nil, { fn = restartVirtualDisplay }))
     end
+    table.insert(items, item("Kill & Deactivate Virtual Display", nil, { fn = killAndDeactivateVirtualDisplay }))
 
     table.insert(items, sep())
     table.insert(items, item("Emergency Restore All Windows", "\u{2318}\u{2303}\u{2325}\u{21e7}R", {

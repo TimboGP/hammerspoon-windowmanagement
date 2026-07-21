@@ -396,6 +396,15 @@ Known caveats:
   on `:stop()`, if one is still attached, you'll be asked whether to remove
   it or leave it running (the daemon itself keeps running via `launchd`
   either way — only the display is in question).
+- The menu bar also offers two recovery actions for the display itself
+  (distinct from the daemon, which always keeps running via `launchd`):
+  "Restart Virtual Display" restores any parked windows, then destroys and
+  recreates the display via the daemon, without touching the feature's
+  enabled/disabled toggle — useful if the display itself has gotten into a
+  bad state. "Kill & Deactivate Virtual Display" does the same restore, then
+  also destroys the display *and* turns the feature off (falling back to
+  minimize), for when you want it gone rather than just refreshed. Both are
+  no-ops (with an alert) if the daemon isn't reachable.
 
 ## Keybinding cheat-sheet
 
