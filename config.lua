@@ -40,7 +40,7 @@ return {
   -- Spoon). enabled toggles the hotkey on/off (also from the menu bar, see
   -- init.lua). axis: "x" or "y". amplitude in px, frequency in Hz, duration
   -- in seconds.
-  wiggle = { enabled = true, axis = "x", amplitude = 18, frequency = 6, duration = 0.45 },
+  wiggle = { enabled = true, axis = "x", amplitude = 18, frequency = 12, duration = 1.0 },
 
   -- Tunables for the workspace hide/show slide animation (see windowanim.lua
   -- and the vendored AnimFX Spoon's `slide` effect). Deliberately runs ONLY on
